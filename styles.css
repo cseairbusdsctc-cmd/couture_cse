@@ -1,0 +1,335 @@
+:root {
+  --chambray: #E7EDF3;
+  --toile: #FFFFFF;
+  --encre: #14202E;
+  --indigo: #1F3A5F;
+  --indigo-clair: #2E5486;
+  --fil: #D9A21B;
+  --gris: #5B6B7D;
+  --trait: #C9D3DE;
+  --erreur: #9E2B25;
+
+  --titre: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --texte: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
+body {
+  font-family: var(--texte);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--encre);
+  background: var(--chambray);
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+           env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  -webkit-text-size-adjust: 100%;
+}
+
+[hidden] { display: none !important; }
+
+/* ---------- En-tête : le titre est souligné par une surpiqûre ---------- */
+.entete {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 20px 18px;
+}
+
+.entete h1 {
+  font-family: var(--titre);
+  font-weight: 800;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--indigo);
+  margin: 0;
+  padding-bottom: 12px;
+  background-image: repeating-linear-gradient(90deg, var(--fil) 0 10px, transparent 10px 16px);
+  background-size: 100% 3px;
+  background-repeat: no-repeat;
+  background-position: left bottom;
+}
+
+.sous-titre {
+  margin: 8px 0 0;
+  color: var(--gris);
+  font-size: 0.95rem;
+}
+
+.zone-compte {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.95rem;
+}
+
+.nom-utilisateur { font-weight: 700; }
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 20px 48px;
+}
+
+h2 {
+  font-family: var(--titre);
+  font-weight: 600;
+  font-size: 1.4rem;
+  margin: 0 0 8px;
+}
+
+/* ---------- Connexion ---------- */
+.panneau {
+  background: var(--toile);
+  border-radius: 10px;
+  padding: 24px 20px;
+  margin-top: 8px;
+  max-width: 480px;
+}
+
+.panneau p { margin: 0 0 20px; color: var(--gris); }
+
+label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+input {
+  width: 100%;
+  font: inherit;
+  padding: 12px 14px;
+  border: 2px solid var(--trait);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--encre);
+  margin-bottom: 16px;
+}
+
+input:focus { border-color: var(--indigo); outline: none; }
+
+.champ-code {
+  font-family: var(--titre);
+  font-size: 1.8rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.liens-secondaires {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+/* ---------- Boutons ---------- */
+.bouton {
+  font: inherit;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 12px 18px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  min-height: 48px;
+}
+
+.bouton.principal {
+  width: 100%;
+  background: var(--indigo);
+  color: #fff;
+}
+
+.bouton.principal:hover { background: var(--indigo-clair); }
+
+.bouton.secondaire {
+  width: 100%;
+  background: transparent;
+  color: var(--indigo);
+  border-color: var(--indigo);
+}
+
+.bouton.discret {
+  background: transparent;
+  color: var(--indigo);
+  border-color: var(--trait);
+  padding: 8px 14px;
+  min-height: 40px;
+}
+
+.bouton:disabled {
+  background: var(--chambray);
+  color: var(--gris);
+  border-color: var(--trait);
+  cursor: not-allowed;
+}
+
+.lien {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--indigo);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--fil);
+  outline-offset: 2px;
+}
+
+/* ---------- Liste des sessions ---------- */
+.barre-outils {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0 12px;
+}
+
+.mois {
+  font-family: var(--titre);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--gris);
+  margin: 28px 0 10px;
+}
+
+.mois::first-letter { text-transform: uppercase; }
+
+.session {
+  position: relative;
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 16px;
+  background: var(--toile);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+/* La session où l'on est inscrit est « cousue » */
+.session.inscrite {
+  outline: 2px dashed var(--fil);
+  outline-offset: -7px;
+}
+
+.etiquette-date {
+  background: var(--indigo);
+  color: #fff;
+  border-radius: 6px;
+  text-align: center;
+  padding: 8px 4px 10px;
+  align-self: start;
+}
+
+.etiquette-date .jour-semaine { font-size: 0.8rem; }
+
+.etiquette-date .jour {
+  display: block;
+  font-family: var(--titre);
+  font-weight: 800;
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.etiquette-date .mois-court { font-size: 0.8rem; }
+
+.session h3 {
+  font-family: var(--titre);
+  font-weight: 600;
+  font-size: 1.2rem;
+  line-height: 1.25;
+  margin: 0 0 4px;
+}
+
+.session .infos { margin: 0; color: var(--gris); }
+
+.session .description {
+  margin: 8px 0 0;
+  white-space: pre-line;
+  font-size: 0.95rem;
+}
+
+.statut {
+  display: inline-block;
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.statut.inscrit { color: var(--indigo); }
+.statut.complet, .statut.ferme { color: var(--gris); }
+
+.session .actions {
+  grid-column: 1 / -1;
+}
+
+.inscrits {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--trait);
+  padding-top: 10px;
+  font-size: 0.95rem;
+}
+
+.inscrits summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.inscrits ul { margin: 8px 0 0; padding-left: 20px; }
+.inscrits .attente-reponse { color: var(--gris); }
+
+.vide {
+  background: var(--toile);
+  border-radius: 10px;
+  padding: 24px 20px;
+}
+
+.aide-installation {
+  background: var(--toile);
+  border-left: 4px solid var(--fil);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.chargement { color: var(--gris); }
+
+/* ---------- Messages ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0));
+  transform: translateX(-50%);
+  width: min(92vw, 520px);
+  background: var(--encre);
+  color: #fff;
+  padding: 14px 18px;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.toast.erreur { background: var(--erreur); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: monter 0.2s ease-out; }
+  @keyframes monter {
+    from { transform: translate(-50%, 12px); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+  }
+}
+
+@media (max-width: 380px) {
+  .session { grid-template-columns: 64px 1fr; gap: 12px; }
+  .etiquette-date .jour { font-size: 1.7rem; }
+}
