@@ -1,0 +1,16 @@
+{
+  "name": "Ateliers couture — CSE",
+  "short_name": "Couture",
+  "description": "Réservation des sessions couture",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E7EDF3",
+  "theme_color": "#1F3A5F",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
