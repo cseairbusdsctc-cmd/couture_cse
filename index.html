@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ateliers couture</title>
+  <meta name="description" content="Réservation des sessions couture du CSE">
+  <meta name="theme-color" content="#1F3A5F">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Couture">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="entete">
+    <div class="entete-texte">
+      <h1 id="titre-appli">Ateliers couture</h1>
+      <p id="sous-titre" class="sous-titre"></p>
+    </div>
+    <div id="zone-compte" class="zone-compte" hidden>
+      <span id="nom-utilisateur" class="nom-utilisateur"></span>
+      <button id="btn-deconnexion" class="lien" type="button">Se déconnecter</button>
+    </div>
+  </header>
+
+  <main id="contenu">
+    <!-- Connexion -->
+    <section id="ecran-connexion" class="ecran" hidden>
+      <div id="etape-email" class="panneau">
+        <h2>Connexion</h2>
+        <p>Saisissez l'adresse e-mail enregistrée auprès du CSE. Vous recevrez un code à 6 chiffres.</p>
+        <label for="champ-email">Adresse e-mail</label>
+        <input id="champ-email" type="email" inputmode="email" autocomplete="email" required>
+        <button id="btn-code" class="bouton principal" type="button">Recevoir un code</button>
+      </div>
+
+      <div id="etape-code" class="panneau" hidden>
+        <h2>Saisissez votre code</h2>
+        <p id="texte-code"></p>
+        <label for="champ-code">Code à 6 chiffres</label>
+        <input id="champ-code" class="champ-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}">
+        <button id="btn-connexion" class="bouton principal" type="button">Se connecter</button>
+        <div class="liens-secondaires">
+          <button id="btn-renvoyer" class="lien" type="button">Renvoyer un code</button>
+          <button id="btn-changer-email" class="lien" type="button">Changer d'adresse</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sessions -->
+    <section id="ecran-sessions" class="ecran" hidden>
+      <div class="barre-outils">
+        <h2>Sessions à venir</h2>
+        <button id="btn-actualiser" class="bouton discret" type="button">Actualiser</button>
+      </div>
+      <div id="aide-installation" class="aide-installation" hidden></div>
+      <div id="liste-sessions" aria-live="polite"></div>
+    </section>
+
+    <p id="chargement" class="chargement" hidden>Chargement…</p>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
