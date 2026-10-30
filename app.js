@@ -4,6 +4,7 @@
   const CFG = window.APP_CONFIG;
   const $ = (id) => document.getElementById(id);
   const CLE_STOCKAGE = 'couture.session';
+  const CLE_PUSH = 'couture.push';
 
   let etat = { jeton: null, utilisateur: null, emailEnCours: '' };
 
@@ -94,8 +95,10 @@
     $('ecran-sessions').hidden = false;
     $('zone-compte').hidden = false;
     const u = etat.utilisateur || {};
-    $('nom-utilisateur').textContent = [u.prenom, u.nom].filter(Boolean).join(' ') || u.email || '';
+    $('nom-utilisateur').textContent = ([u.prenom, u.nom].filter(Boolean).join(' ') || u.email || '') +
+      (u.groupe ? ` · groupe ${u.groupe}` : '');
     afficherAideInstallation();
+    initialiserPush();
     chargerSessions();
   }
 
@@ -131,6 +134,9 @@
   }
 
   async function seDeconnecter() {
+    const tokenPush = lirePush();
+    if (tokenPush) await api('retirerAppareil', { tokenPush });
+    ecrirePush(null);
     await api('deconnexion');
     oublierSession();
     afficherConnexion();
@@ -163,7 +169,11 @@
     rendreSessions(r.sessions);
   }
 
+  let sessionsParId = {};
+
   function rendreSessions(sessions) {
+    sessionsParId = {};
+    sessions.forEach((x) => { sessionsParId[x.id] = x; });
     const conteneur = $('liste-sessions');
     if (!sessions.length) {
       conteneur.innerHTML = '<div class="vide"><p>Aucune session n\'est prévue pour le moment. ' +
@@ -189,21 +199,51 @@
   function carteSession(s, debut, fin) {
     let statut = '';
     let action = '';
+    const id = echapper(s.id);
+    const cours = s.type === 'cours';
+    const bouton = (act, libelle, classe, extra = '') =>
+      `<button class="bouton ${classe}" data-action="${act}" data-id="${id}"${extra}>${libelle}</button>`;
 
-    if (s.inscrit) {
+    if (s.inscrit && cours && s.monGroupe) {
+      statut = '<span class="statut inscrit">Vous êtes attendu·e</span>';
+      action = bouton('desinscrire', 'Signaler mon absence', 'secondaire', ' data-cours="1"');
+    } else if (s.inscrit) {
       statut = '<span class="statut inscrit">Vous êtes inscrit·e</span>';
-      action = `<button class="bouton secondaire" data-action="desinscrire" data-id="${echapper(s.id)}">Me désinscrire</button>`;
+      action = bouton('desinscrire', 'Me désinscrire', 'secondaire');
     } else if (!s.ouvert) {
-      statut = '<span class="statut ferme">Inscriptions fermées</span>';
+      statut = `<span class="statut ferme">${s.absent ? 'Absence signalée' : 'Inscriptions fermées'}</span>`;
     } else if (s.complet && s.enAttente) {
       statut = '<span class="statut complet">Complet, vous serez prévenu·e si une place se libère</span>';
-      action = `<button class="bouton secondaire" data-action="quitterAttente" data-id="${echapper(s.id)}">Ne plus être prévenu·e</button>`;
+      action = bouton('quitterAttente', 'Ne plus être prévenu·e', 'secondaire');
     } else if (s.complet) {
-      statut = '<span class="statut complet">Complet</span>';
-      action = `<button class="bouton secondaire" data-action="rejoindreAttente" data-id="${echapper(s.id)}">Me prévenir si une place se libère</button>`;
+      statut = `<span class="statut complet">${s.absent ? 'Absence signalée · complet' : 'Complet'}</span>`;
+      action = bouton('rejoindreAttente', 'Me prévenir si une place se libère', 'secondaire');
+    } else if (s.absent) {
+      statut = '<span class="statut ferme">Absence signalée</span>';
+      action = bouton('inscrire', 'Finalement, je viens', 'principal');
+    } else if (cours && !s.monGroupe) {
+      statut = '<span class="statut">Place disponible pour les autres groupes</span>';
+      action = bouton('inscrire', 'Prendre la place', 'principal');
     } else {
-      action = `<button class="bouton principal" data-action="inscrire" data-id="${echapper(s.id)}">M'inscrire</button>`;
+      action = bouton('inscrire', 'M\'inscrire', 'principal');
     }
+
+    const badge = cours
+      ? `<span class="badge cours">Cours${s.groupe ? ' · groupe ' + echapper(s.groupe) : ''}${s.monGroupe ? ' · votre groupe' : ''}</span>`
+      : '<span class="badge">Session libre</span>';
+
+    const fournitures = Array.isArray(s.fournitures) && s.fournitures.length
+      ? `<div class="fournitures"><p class="fournitures-titre">À apporter</p><ul>${
+          s.fournitures.map((f) => `<li>${echapper(f)}</li>`).join('')}</ul></div>`
+      : '';
+    const editionProgramme = s.programme
+      ? `<button class="lien" type="button" data-action="programme" data-id="${id}">${
+          s.programme.activite || s.programme.description || s.programme.fournitures
+            ? 'Modifier le programme' : 'Saisir le programme'}</button>`
+      : '';
+    const actions = action || editionProgramme
+      ? `<div class="actions">${action}${editionProgramme ? `<div class="edition">${editionProgramme}</div>` : ''}</div>`
+      : '';
 
     let blocInscrits = '';
     if (Array.isArray(s.inscrits)) {
@@ -215,23 +255,27 @@
             return `<li>${echapper(p.nom)}${reponse}</li>`;
           }).join('') + '</ul>'
         : '<p>Personne pour l\'instant.</p>';
-      blocInscrits = `<details class="inscrits"><summary>${s.nbInscrits} inscrit${s.nbInscrits > 1 ? 's' : ''} sur ${s.places} places</summary>${liste}</details>`;
+      const absences = Array.isArray(s.absents) && s.absents.length
+        ? `<p class="absences">Absent·es : ${s.absents.map(echapper).join(', ')}</p>` : '';
+      blocInscrits = `<details class="inscrits"><summary>${s.nbInscrits} inscrit${s.nbInscrits > 1 ? 's' : ''} sur ${s.places} places</summary>${liste}${absences}</details>`;
     }
 
     return `
-      <article class="session${s.inscrit ? ' inscrite' : ''}" aria-label="${echapper(s.titre)}, ${echapper(fmtComplet.format(debut))}">
+      <article class="session${s.inscrit ? ' inscrite' : ''}${cours ? ' cours' : ''}" aria-label="${echapper(s.titre)}, ${echapper(fmtComplet.format(debut))}">
         <div class="etiquette-date" aria-hidden="true">
           <span class="jour-semaine">${echapper(fmtJourSemaine.format(debut))}</span>
           <span class="jour">${echapper(fmtJour.format(debut))}</span>
           <span class="mois-court">${echapper(fmtMoisCourt.format(debut))}</span>
         </div>
         <div>
+          ${badge}
           <h3>${echapper(s.titre)}</h3>
           <p class="infos">${heure(debut)} à ${heure(fin)}${s.lieu ? '<br>' + echapper(s.lieu) : ''}</p>
           ${s.description ? `<p class="description">${echapper(s.description)}</p>` : ''}
+          ${fournitures}
           ${statut}
         </div>
-        ${action ? `<div class="actions">${action}</div>` : ''}
+        ${actions}
         ${blocInscrits}
       </article>`;
   }
@@ -247,14 +291,165 @@
     const bouton = e.target.closest('button[data-action]');
     if (!bouton) return;
     const action = bouton.dataset.action;
-    if (action === 'desinscrire' && !window.confirm('Vous désinscrire de cette session ? Votre place sera proposée à d\'autres adhérents.')) {
+    if (action === 'programme') {
+      ouvrirProgramme(bouton.dataset.id);
       return;
+    }
+    if (action === 'desinscrire') {
+      const question = bouton.dataset.cours
+        ? 'Signaler votre absence à ce cours ? Votre place pourra être prise par un adhérent de l\'autre groupe.'
+        : 'Vous désinscrire de cette session ? Votre place sera proposée à d\'autres adhérents.';
+      if (!window.confirm(question)) return;
     }
     occupe(bouton, true, LIBELLES_EN_COURS[action]);
     const r = await api(action, { eventId: bouton.dataset.id });
     occupe(bouton, false);
     if (r.code === 'AUTH') return;
     message(r.ok ? r.message : r.erreur, !r.ok);
+    chargerSessions();
+  }
+
+  // ---------- Notifications push ----------
+  function lirePush() {
+    try { return localStorage.getItem(CLE_PUSH); } catch (e) { return null; }
+  }
+
+  function ecrirePush(token) {
+    try {
+      if (token) localStorage.setItem(CLE_PUSH, token); else localStorage.removeItem(CLE_PUSH);
+    } catch (e) { /* ignoré */ }
+  }
+
+  function pushPossible() {
+    return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window &&
+      window.firebase && CFG.FIREBASE && CFG.FIREBASE.apiKey && CFG.VAPID_KEY;
+  }
+
+  // Minimisation : on n'enregistre que le type d'appareil, pas l'identification complète du navigateur.
+  function typeAppareil() {
+    const ua = navigator.userAgent;
+    if (/iphone|ipad|ipod/i.test(ua)) return 'iPhone / iPad';
+    if (/android/i.test(ua)) return 'Android';
+    return 'Autre';
+  }
+
+  function messagerie() {
+    if (!firebase.apps.length) firebase.initializeApp(CFG.FIREBASE);
+    return firebase.messaging();
+  }
+
+  async function obtenirTokenPush() {
+    const reg = await navigator.serviceWorker.ready;
+    return messagerie().getToken({ vapidKey: CFG.VAPID_KEY, serviceWorkerRegistration: reg });
+  }
+
+  let ecouteActive = false;
+  function ecouterAuPremierPlan() {
+    if (ecouteActive) return;
+    ecouteActive = true;
+    // Appli ouverte : pas de notification système, on affiche un message et on actualise.
+    messagerie().onMessage((p) => {
+      message((p.notification && p.notification.body) || 'Une place s\'est libérée.');
+      chargerSessions();
+    });
+  }
+
+  // Au démarrage : si déjà autorisé, vérifie que l'identifiant n'a pas changé.
+  async function initialiserPush() {
+    afficherZoneNotifications();
+    if (!pushPossible() || Notification.permission !== 'granted' || !lirePush()) return;
+    try {
+      const token = await obtenirTokenPush();
+      ecouterAuPremierPlan();
+      if (token && token !== lirePush()) {
+        const r = await api('enregistrerAppareil', { tokenPush: token, appareil: typeAppareil() });
+        if (r.ok) ecrirePush(token);
+      }
+    } catch (e) { /* hors ligne ou service indisponible : on réessaiera au prochain lancement */ }
+  }
+
+  async function activerNotifications(bouton) {
+    occupe(bouton, true, 'Activation…');
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        message('Notifications refusées. Vous pouvez les autoriser dans les réglages de l\'application.', true);
+        return;
+      }
+      const token = await obtenirTokenPush();
+      const r = await api('enregistrerAppareil', { tokenPush: token, appareil: typeAppareil() });
+      if (!r.ok) { message(r.erreur, true); return; }
+      ecrirePush(token);
+      ecouterAuPremierPlan();
+      message(r.message);
+    } catch (e) {
+      message('Impossible d\'activer les notifications sur cet appareil.', true);
+    } finally {
+      afficherZoneNotifications();
+    }
+  }
+
+  function afficherZoneNotifications() {
+    const zone = $('zone-notifications');
+    if (!pushPossible() || $('ecran-sessions').hidden) { zone.hidden = true; return; }
+
+    if (Notification.permission === 'denied') {
+      zone.textContent = 'Les notifications sont bloquées pour cette application. ' +
+        'Autorisez-les dans les réglages du téléphone pour être prévenu·e quand une place se libère.';
+      zone.hidden = false;
+    } else if (Notification.permission === 'granted' && lirePush()) {
+      zone.hidden = true;
+    } else {
+      zone.innerHTML = 'Recevez une notification sur ce téléphone quand une place se libère ' +
+        'sur une session où vous attendez. ' +
+        '<button class="lien" id="btn-notifications" type="button">Activer les notifications</button>';
+      zone.hidden = false;
+      $('btn-notifications').addEventListener('click', (e) => activerNotifications(e.target));
+    }
+  }
+
+  // ---------- Programme des cours (animatrices) ----------
+  let programmeEnCours = null;
+
+  function ouvrirProgramme(id) {
+    const s = sessionsParId[id];
+    if (!s || !s.programme) return;
+    programmeEnCours = id;
+    $('programme-date').textContent =
+      fmtComplet.format(new Date(s.debut)) + (s.groupe ? ` · groupe ${s.groupe}` : '');
+    $('prog-activite').value = s.programme.activite || '';
+    $('prog-description').value = s.programme.description || '';
+    $('prog-fournitures').value = s.programme.fournitures || '';
+    const d = $('dialogue-programme');
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+    $('prog-activite').focus();
+  }
+
+  function fermerProgramme() {
+    const d = $('dialogue-programme');
+    if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+    programmeEnCours = null;
+  }
+
+  async function enregistrerProgramme(e) {
+    e.preventDefault();
+    if (!programmeEnCours) return;
+    const bouton = $('prog-enregistrer');
+    if (bouton.disabled) return;
+    occupe(bouton, true, 'Enregistrement…');
+    const r = await api('modifierProgramme', {
+      eventId: programmeEnCours,
+      programme: {
+        activite: $('prog-activite').value,
+        description: $('prog-description').value,
+        fournitures: $('prog-fournitures').value
+      }
+    });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') { fermerProgramme(); return; }
+    if (!r.ok) { message(r.erreur, true); return; }
+    fermerProgramme();
+    message(r.message);
     chargerSessions();
   }
 
@@ -313,6 +508,9 @@
     $('btn-deconnexion').addEventListener('click', seDeconnecter);
     $('btn-actualiser').addEventListener('click', chargerSessions);
     $('liste-sessions').addEventListener('click', surClicListe);
+    $('form-programme').addEventListener('submit', enregistrerProgramme);
+    $('prog-annuler').addEventListener('click', fermerProgramme);
+    $('dialogue-programme').addEventListener('close', () => { programmeEnCours = null; });
 
     // Actualise quand on revient dans l'application
     document.addEventListener('visibilitychange', () => {
@@ -322,6 +520,9 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => { /* fonctionne aussi sans */ });
     }
+
+    // Demande au navigateur de ne pas effacer les données de l'appli en cas de manque d'espace
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
     chargerSession();
     if (etat.jeton) afficherSessions(); else afficherConnexion();
