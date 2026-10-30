@@ -1,3 +1,12 @@
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap;
+  src: url("fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap;
+  src: url("fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Bricolage Grotesque"; font-weight: 600; font-display: swap;
+  src: url("fonts/bricolage-grotesque-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Bricolage Grotesque"; font-weight: 800; font-display: swap;
+  src: url("fonts/bricolage-grotesque-latin-800-normal.woff2") format("woff2"); }
+
 :root {
   --chambray: #E7EDF3;
   --toile: #FFFFFF;
@@ -115,7 +124,20 @@ input {
   margin-bottom: 16px;
 }
 
-input:focus { border-color: var(--indigo); outline: none; }
+input:focus, textarea:focus { border-color: var(--indigo); outline: none; }
+
+textarea {
+  width: 100%;
+  font: inherit;
+  line-height: 1.4;
+  padding: 10px 14px;
+  border: 2px solid var(--trait);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--encre);
+  margin-bottom: 16px;
+  resize: vertical;
+}
 
 .champ-code {
   font-family: var(--titre);
@@ -333,3 +355,113 @@ input:focus { border-color: var(--indigo); outline: none; }
   .session { grid-template-columns: 64px 1fr; gap: 12px; }
   .etiquette-date .jour { font-size: 1.7rem; }
 }
+
+/* ---------- Pied de page et mentions ---------- */
+.pied {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 20px 32px;
+  font-size: 0.9rem;
+}
+
+.pied a, .mention a { color: var(--indigo); }
+
+.panneau .mention {
+  margin: 16px 0 0;
+  font-size: 0.9rem;
+}
+
+/* Page de confidentialité */
+.texte-legal {
+  background: var(--toile);
+  border-radius: 10px;
+  padding: 24px 20px;
+}
+.texte-legal h2 { margin-top: 24px; }
+.texte-legal h2:first-child { margin-top: 0; }
+.texte-legal ul { padding-left: 20px; }
+.texte-legal table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+.texte-legal th, .texte-legal td { text-align: left; vertical-align: top; padding: 8px 6px; border-bottom: 1px solid var(--trait); }
+.defile { overflow-x: auto; }
+
+.sous-titre a { color: var(--indigo); }
+
+/* ---------- Types de session ---------- */
+.badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--gris);
+  margin-bottom: 4px;
+}
+
+.badge.cours {
+  color: var(--indigo);
+  background: var(--chambray);
+  border-radius: 4px;
+  padding: 1px 8px;
+}
+
+/* Les cours portent une étiquette de date couleur fil, les sessions libres restent indigo */
+.session.cours .etiquette-date {
+  background: var(--fil);
+  color: var(--encre);
+}
+
+.inscrits .absences { margin: 8px 0 0; color: var(--gris); }
+
+/* ---------- Programme des cours ---------- */
+.fournitures {
+  margin-top: 10px;
+  padding: 8px 12px 10px;
+  background: var(--chambray);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.fournitures-titre {
+  margin: 0;
+  font-weight: 700;
+}
+
+.fournitures ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.session .edition {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.dialogue {
+  width: min(92vw, 520px);
+  max-height: 90vh;
+  border: none;
+  border-radius: 12px;
+  padding: 24px 20px;
+  color: var(--encre);
+  background: var(--toile);
+}
+
+.dialogue::backdrop { background: rgba(20, 32, 46, 0.55); }
+
+.dialogue h2 { margin-bottom: 2px; }
+.dialogue .sous-titre { margin: 0 0 18px; }
+.dialogue .sous-titre::first-letter { text-transform: uppercase; }
+
+.aide-champ {
+  margin: -2px 0 8px;
+  color: var(--gris);
+  font-size: 0.9rem;
+}
+
+.actions-dialogue {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.actions-dialogue .bouton.principal { width: auto; }
