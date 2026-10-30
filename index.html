@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://script.google.com https://script.googleusercontent.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://firebase.googleapis.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <title>Ateliers couture</title>
   <meta name="description" content="Réservation des sessions couture du CSE">
   <meta name="theme-color" content="#1F3A5F">
@@ -13,9 +15,6 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Couture">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -39,6 +38,8 @@
         <label for="champ-email">Adresse e-mail</label>
         <input id="champ-email" type="email" inputmode="email" autocomplete="email" required>
         <button id="btn-code" class="bouton principal" type="button">Recevoir un code</button>
+        <p class="mention">Vos données servent uniquement à gérer les inscriptions aux ateliers.
+          <a href="confidentialite.html">En savoir plus</a></p>
       </div>
 
       <div id="etape-code" class="panneau" hidden>
@@ -61,15 +62,50 @@
         <button id="btn-actualiser" class="bouton discret" type="button">Actualiser</button>
       </div>
       <div id="aide-installation" class="aide-installation" hidden></div>
+      <div id="zone-notifications" class="aide-installation" hidden></div>
       <div id="liste-sessions" aria-live="polite"></div>
     </section>
 
     <p id="chargement" class="chargement" hidden>Chargement…</p>
   </main>
 
+  <footer class="pied">
+    <a href="confidentialite.html">Données personnelles</a>
+  </footer>
+
+  <dialog id="dialogue-programme" class="dialogue" aria-labelledby="titre-programme">
+    <form id="form-programme" novalidate>
+      <h2 id="titre-programme">Programme du cours</h2>
+      <p id="programme-date" class="sous-titre"></p>
+
+      <label for="prog-activite">Activité</label>
+      <input id="prog-activite" type="text" maxlength="80" autocomplete="off"
+             placeholder="Ex. : trousse zippée doublée">
+
+      <label for="prog-description">Description</label>
+      <textarea id="prog-description" rows="3" maxlength="800"
+                placeholder="Ce que l'on va apprendre ou réaliser"></textarea>
+
+      <label for="prog-fournitures">Fournitures à apporter</label>
+      <p class="aide-champ">Une par ligne.</p>
+      <textarea id="prog-fournitures" rows="6"
+                placeholder="Tissu coton 50 cm&#10;Fermeture à glissière 20 cm&#10;Fil assorti"></textarea>
+
+      <p class="aide-champ">À la première publication, les participants sont prévenus.
+        Laissez tout vide pour effacer le programme.</p>
+
+      <div class="actions-dialogue">
+        <button id="prog-annuler" class="bouton discret" type="button">Annuler</button>
+        <button id="prog-enregistrer" class="bouton principal" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="config.js"></script>
+  <script src="vendor/firebase-app-compat.js"></script>
+  <script src="vendor/firebase-messaging-compat.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
