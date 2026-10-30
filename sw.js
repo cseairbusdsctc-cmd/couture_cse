@@ -1,9 +1,21 @@
 // Service worker : met en cache l'interface pour un démarrage rapide.
 // Les appels à l'API (script.google.com) ne sont jamais mis en cache.
-const VERSION = 'couture-v1';
+const VERSION = 'couture-v7';
+
+// Notifications push : Firebase affiche lui-même les notifications reçues quand l'appli est fermée,
+// et ouvre l'application au toucher (lien fourni par le script).
+importScripts('config.js');
+if (self.APP_CONFIG && self.APP_CONFIG.FIREBASE && self.APP_CONFIG.FIREBASE.apiKey) {
+  importScripts('vendor/firebase-app-compat.js', 'vendor/firebase-messaging-compat.js');
+  firebase.initializeApp(self.APP_CONFIG.FIREBASE);
+  firebase.messaging();
+}
 const FICHIERS = [
   './', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
-  'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
+  'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
+  'confidentialite.html', 'vendor/firebase-app-compat.js', 'vendor/firebase-messaging-compat.js',
+  'fonts/atkinson-hyperlegible-latin-400-normal.woff2', 'fonts/atkinson-hyperlegible-latin-700-normal.woff2',
+  'fonts/bricolage-grotesque-latin-600-normal.woff2', 'fonts/bricolage-grotesque-latin-800-normal.woff2'
 ];
 
 self.addEventListener('install', (e) => {
