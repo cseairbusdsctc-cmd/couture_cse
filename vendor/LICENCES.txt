@@ -1,0 +1,2 @@
+firebase-app-compat.js et firebase-messaging-compat.js : Firebase JS SDK 12.19.0, (c) Google LLC, licence Apache-2.0
+https://github.com/firebase/firebase-js-sdk
