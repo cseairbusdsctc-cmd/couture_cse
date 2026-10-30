@@ -8,12 +8,12 @@ self.APP_CONFIG = {
   // Notifications push : copier depuis la console Firebase (voir README).
   // Ces valeurs sont publiques par conception : elles peuvent être dans le dépôt.
   FIREBASE: {
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    messagingSenderId: '',
-    appId: ''
+    apiKey: 'AIzaSyAigmxEtGdtdc9pKn2xCTilS041C9UVAH4',
+    authDomain: 'couture-62f6c.firebaseapp.com',
+    projectId: 'couture-62f6c',
+    messagingSenderId: '710573532136',
+    appId: '1:710573532136:web:1209ae5e5f65a605f9fa5d'
   },
   // Cloud Messaging → Certificats Web Push → clé publique
-  VAPID_KEY: ''
+  VAPID_KEY: 'BL4YCoBY5cQWkTTSzWF2qfvSZuxLpyeHtBIjYn6s7hZ-vN0B_yTyqv6AoyPYYZRr80X0xHZ4O48mR7sser1pjcc'
 };
