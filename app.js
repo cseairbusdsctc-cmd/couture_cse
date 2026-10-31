@@ -72,8 +72,11 @@
   }
 
   // ---------- Écrans ----------
+  const ECRANS = ['sessions', 'gestion', 'reglages'];
+
   function afficherConnexion() {
-    $('ecran-sessions').hidden = true;
+    ECRANS.forEach((e) => { $('ecran-' + e).hidden = true; });
+    $('onglets').hidden = true;
     $('zone-compte').hidden = true;
     $('ecran-connexion').hidden = false;
     $('etape-email').hidden = false;
@@ -90,16 +93,45 @@
     $('champ-code').focus();
   }
 
+  const ROLES = { adherent: 'Adhérent·e', animatrice: 'Animatrice', bureau: 'Membre du bureau', admin: 'Administrateur' };
+
+  function droits() {
+    return (etat.utilisateur && etat.utilisateur.droits) || {};
+  }
+
+  function afficherProfil() {
+    const u = etat.utilisateur || {};
+    const groupe = u.groupe === 'Tous' ? ' · tous les groupes' : (u.groupe ? ` · groupe ${u.groupe}` : '');
+    $('nom-utilisateur').textContent = ([u.prenom, u.nom].filter(Boolean).join(' ') || u.email || '') + groupe;
+    $('onglet-gestion').hidden = !(droits().creerCours || droits().creerLibre);
+  }
+
   function afficherSessions() {
     $('ecran-connexion').hidden = true;
-    $('ecran-sessions').hidden = false;
     $('zone-compte').hidden = false;
-    const u = etat.utilisateur || {};
-    $('nom-utilisateur').textContent = ([u.prenom, u.nom].filter(Boolean).join(' ') || u.email || '') +
-      (u.groupe ? ` · groupe ${u.groupe}` : '');
+    $('onglets').hidden = false;
+    afficherProfil();
+    afficherOnglet('sessions');
     afficherAideInstallation();
     initialiserPush();
-    chargerSessions();
+    // Rôle et droits à jour (ils ont pu changer depuis la connexion)
+    api('moi').then((r) => {
+      if (!r.ok) return;
+      etat.utilisateur = r.utilisateur;
+      enregistrerSession();
+      afficherProfil();
+    });
+  }
+
+  function afficherOnglet(nom) {
+    if (nom === 'gestion' && $('onglet-gestion').hidden) nom = 'sessions';
+    ECRANS.forEach((e) => { $('ecran-' + e).hidden = e !== nom; });
+    document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
+      if (b.dataset.onglet === nom) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    if (nom === 'sessions') chargerSessions();
+    if (nom === 'gestion') chargerGestion();
+    if (nom === 'reglages') afficherReglages();
   }
 
   // ---------- Connexion ----------
@@ -204,7 +236,10 @@
     const bouton = (act, libelle, classe, extra = '') =>
       `<button class="bouton ${classe}" data-action="${act}" data-id="${id}"${extra}>${libelle}</button>`;
 
-    if (s.inscrit && cours && s.monGroupe) {
+    if (s.encadrant) {
+      statut = `<span class="statut inscrit">${s.inscrit ? 'Vous encadrez ce cours' : 'Vous avez décliné ce cours'}</span>`;
+      if (!s.inscrit && s.ouvert) action = bouton('inscrire', 'Je serai là finalement', 'secondaire');
+    } else if (s.inscrit && cours && s.monGroupe) {
       statut = '<span class="statut inscrit">Vous êtes attendu·e</span>';
       action = bouton('desinscrire', 'Signaler mon absence', 'secondaire', ' data-cours="1"');
     } else if (s.inscrit) {
@@ -228,9 +263,12 @@
       action = bouton('inscrire', 'M\'inscrire', 'principal');
     }
 
+    const nomGroupe = s.groupe === 'Tous' ? ' · tous les groupes' : (s.groupe ? ' · groupe ' + echapper(s.groupe) : '');
     const badge = cours
-      ? `<span class="badge cours">Cours${s.groupe ? ' · groupe ' + echapper(s.groupe) : ''}${s.monGroupe ? ' · votre groupe' : ''}</span>`
+      ? `<span class="badge cours">Cours${nomGroupe}${s.monGroupe && !s.encadrant && s.groupe !== 'Tous' ? ' · votre groupe' : ''}</span>`
       : '<span class="badge">Session libre</span>';
+    const encadrement = cours && s.encadrants && s.encadrants.length && !s.encadrant
+      ? `<p class="encadrement">Avec ${s.encadrants.map(echapper).join(', ')}</p>` : '';
 
     const fournitures = Array.isArray(s.fournitures) && s.fournitures.length
       ? `<div class="fournitures"><p class="fournitures-titre">À apporter</p><ul>${
@@ -241,8 +279,13 @@
           s.programme.activite || s.programme.description || s.programme.fournitures
             ? 'Modifier le programme' : 'Saisir le programme'}</button>`
       : '';
-    const actions = action || editionProgramme
-      ? `<div class="actions">${action}${editionProgramme ? `<div class="edition">${editionProgramme}</div>` : ''}</div>`
+    const annulation = s.peutAnnuler
+      ? `<button class="lien lien-danger" type="button" data-action="annuler" data-id="${id}">${
+          cours ? 'Annuler ce cours' : 'Annuler cette session'}</button>`
+      : '';
+    const liens = [editionProgramme, annulation].filter(Boolean).join('');
+    const actions = action || liens
+      ? `<div class="actions">${action}${liens ? `<div class="edition">${liens}</div>` : ''}</div>`
       : '';
 
     let blocInscrits = '';
@@ -257,7 +300,7 @@
         : '<p>Personne pour l\'instant.</p>';
       const absences = Array.isArray(s.absents) && s.absents.length
         ? `<p class="absences">Absent·es : ${s.absents.map(echapper).join(', ')}</p>` : '';
-      blocInscrits = `<details class="inscrits"><summary>${s.nbInscrits} inscrit${s.nbInscrits > 1 ? 's' : ''} sur ${s.places} places</summary>${liste}${absences}</details>`;
+      blocInscrits = `<details class="inscrits"><summary>${s.nbInscrits} participant${s.nbInscrits > 1 ? 's' : ''} sur ${s.places} places</summary>${liste}${absences}</details>`;
     }
 
     return `
@@ -271,6 +314,7 @@
           ${badge}
           <h3>${echapper(s.titre)}</h3>
           <p class="infos">${heure(debut)} à ${heure(fin)}${s.lieu ? '<br>' + echapper(s.lieu) : ''}</p>
+          ${encadrement}
           ${s.description ? `<p class="description">${echapper(s.description)}</p>` : ''}
           ${fournitures}
           ${statut}
@@ -293,6 +337,10 @@
     const action = bouton.dataset.action;
     if (action === 'programme') {
       ouvrirProgramme(bouton.dataset.id);
+      return;
+    }
+    if (action === 'annuler') {
+      ouvrirAnnulation(bouton.dataset.id);
       return;
     }
     if (action === 'desinscrire') {
@@ -386,26 +434,34 @@
       message('Impossible d\'activer les notifications sur cet appareil.', true);
     } finally {
       afficherZoneNotifications();
+      if (!$('ecran-reglages').hidden) afficherReglages();
     }
   }
 
-  function afficherZoneNotifications() {
-    const zone = $('zone-notifications');
-    if (!pushPossible() || $('ecran-sessions').hidden) { zone.hidden = true; return; }
-
-    if (Notification.permission === 'denied') {
-      zone.textContent = 'Les notifications sont bloquées pour cette application. ' +
-        'Autorisez-les dans les réglages du téléphone pour être prévenu·e quand une place se libère.';
-      zone.hidden = false;
-    } else if (Notification.permission === 'granted' && lirePush()) {
-      zone.hidden = true;
-    } else {
-      zone.innerHTML = 'Recevez une notification sur ce téléphone quand une place se libère ' +
-        'sur une session où vous attendez. ' +
-        '<button class="lien" id="btn-notifications" type="button">Activer les notifications</button>';
-      zone.hidden = false;
-      $('btn-notifications').addEventListener('click', (e) => activerNotifications(e.target));
+  function htmlEtatPush() {
+    if (!pushPossible()) {
+      return { visible: false, html: 'Les notifications ne sont pas disponibles sur ce navigateur' +
+        (/iphone|ipad|ipod/i.test(navigator.userAgent) ? ' (sur iPhone : installez d\'abord l\'application sur l\'écran d\'accueil).' : '.') +
+        ' Vous recevez les alertes par e-mail.' };
     }
+    if (Notification.permission === 'denied') {
+      return { visible: true, html: 'Les notifications sont bloquées pour cette application. ' +
+        'Autorisez-les dans les réglages du téléphone.' };
+    }
+    if (Notification.permission === 'granted' && lirePush()) {
+      return { visible: false, html: 'Activées sur ce téléphone.' };
+    }
+    return { visible: true, html: 'Recevez une notification sur ce téléphone : place libérée, rappel, ' +
+      'programme d\'un cours, inscriptions. ' +
+      '<button class="lien btn-activer-push" type="button">Activer les notifications</button>' };
+  }
+
+  function afficherZoneNotifications() {
+    const etatPush = htmlEtatPush();
+    const zone = $('zone-notifications');
+    zone.innerHTML = etatPush.html;
+    zone.hidden = !etatPush.visible;
+    $('reglages-push').innerHTML = `<p>${etatPush.html}</p>`;
   }
 
   // ---------- Programme des cours (animatrices) ----------
@@ -451,6 +507,182 @@
     fermerProgramme();
     message(r.message);
     chargerSessions();
+  }
+
+  // ---------- Gestion (animatrices, bureau, admin) ----------
+  const fmtDateCourte = fmt({ weekday: 'short', day: 'numeric', month: 'short' });
+  const libelleDate = (iso) => fmtDateCourte.format(new Date(iso + 'T12:00:00Z'));
+  let gestionInitialisee = false;
+
+  async function chargerGestion() {
+    const r = await api('gestion');
+    if (!r.ok) { if (r.code !== 'AUTH') message(r.erreur, true); return; }
+    const d = droits();
+    $('bloc-absences').hidden = !d.creerCours;
+    $('bloc-cours').hidden = !d.creerCours;
+    $('bloc-session').hidden = !d.creerLibre;
+
+    if (!gestionInitialisee) {
+      $('cours-groupe').innerHTML = r.groupes.map((g) =>
+        `<option value="${echapper(g)}">${g === 'Tous' ? 'Tous les groupes' : 'Groupe ' + echapper(g)}</option>`).join('');
+      $('cours-heure').value = r.defauts.heureCours;
+      $('cours-duree').value = r.defauts.dureeCours;
+      $('cours-lieu').value = r.defauts.lieuCours;
+      $('session-heure').value = r.defauts.heureLibre;
+      $('session-duree').value = r.defauts.dureeLibre;
+      $('session-lieu').value = r.defauts.lieuLibre;
+      $('session-places').value = r.defauts.placesLibre;
+      gestionInitialisee = true;
+    }
+
+    const liste = $('liste-absences');
+    const absences = r.absences || [];
+    liste.innerHTML = absences.length
+      ? absences.map((a, i) => `<li><span><strong>${a.debut === a.fin ? 'Le ' + echapper(libelleDate(a.debut))
+          : 'Du ' + echapper(libelleDate(a.debut)) + ' au ' + echapper(libelleDate(a.fin))}</strong>${
+          a.motif ? ' — ' + echapper(a.motif) : ''}</span>
+          <button class="lien lien-danger" type="button" data-absence="${i}">Supprimer</button></li>`).join('')
+      : '<li class="vide-liste">Aucune absence à venir.</li>';
+    liste.dataset.absences = JSON.stringify(absences);
+
+    const lien = $('lien-formulaire');
+    if (r.formulaire && d.creerCours) {
+      lien.innerHTML = `Vous pouvez aussi utiliser le <a href="${echapper(r.formulaire)}" target="_blank" rel="noopener">formulaire Google des cours</a>.`;
+      lien.hidden = false;
+    } else {
+      lien.hidden = true;
+    }
+  }
+
+  async function soumettre(e, action, cle, donnees, apres) {
+    e.preventDefault();
+    const bouton = e.target.querySelector('button[type=submit]');
+    if (bouton.disabled) return;
+    occupe(bouton, true, 'Enregistrement…');
+    const r = await api(action, { [cle]: donnees });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') return;
+    message(r.ok ? r.message : r.erreur, !r.ok);
+    if (r.ok && apres) apres();
+  }
+
+  function initialiserGestion() {
+    $('form-absence').addEventListener('submit', (e) => soumettre(e, 'ajouterAbsence', 'absence', {
+      debut: $('abs-debut').value, fin: $('abs-fin').value, motif: $('abs-motif').value
+    }, () => { $('form-absence').reset(); chargerGestion(); }));
+
+    $('form-cours').addEventListener('submit', (e) => soumettre(e, 'creerCours', 'cours', {
+      date: $('cours-date').value, heure: $('cours-heure').value, duree: $('cours-duree').value,
+      groupe: $('cours-groupe').value, places: $('cours-places').value, lieu: $('cours-lieu').value,
+      programme: {
+        activite: $('cours-activite').value, description: $('cours-description').value,
+        fournitures: $('cours-fournitures').value
+      }
+    }, () => {
+      ['cours-date', 'cours-places', 'cours-activite', 'cours-description', 'cours-fournitures']
+        .forEach((id) => { $(id).value = ''; });
+    }));
+
+    $('form-session').addEventListener('submit', (e) => soumettre(e, 'creerSession', 'session', {
+      date: $('session-date').value, heure: $('session-heure').value, duree: $('session-duree').value,
+      places: $('session-places').value, titre: $('session-titre').value, lieu: $('session-lieu').value,
+      description: $('session-description').value
+    }, () => {
+      ['session-date', 'session-titre', 'session-description'].forEach((id) => { $(id).value = ''; });
+    }));
+
+    $('liste-absences').addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-absence]');
+      if (!b) return;
+      const a = JSON.parse($('liste-absences').dataset.absences || '[]')[Number(b.dataset.absence)];
+      if (!a || !window.confirm('Supprimer cette absence ? Les cours de cette période seront recréés et les groupes invités.')) return;
+      occupe(b, true, 'Suppression…');
+      const r = await api('supprimerAbsence', { absence: a });
+      occupe(b, false);
+      if (r.code === 'AUTH') return;
+      message(r.ok ? r.message : r.erreur, !r.ok);
+      if (r.ok) chargerGestion();
+    });
+  }
+
+  // ---------- Annulation d'un cours ou d'une session ----------
+  let annulationEnCours = null;
+
+  function ouvrirAnnulation(id) {
+    const s = sessionsParId[id];
+    if (!s) return;
+    annulationEnCours = id;
+    const cours = s.type === 'cours';
+    $('titre-annulation').textContent = cours ? 'Annuler le cours' : 'Annuler la session';
+    $('annulation-confirmer').textContent = cours ? 'Annuler le cours' : 'Annuler la session';
+    $('annulation-date').textContent = `${s.titre} · ${fmtComplet.format(new Date(s.debut))}`;
+    $('annulation-motif').value = '';
+    const d = $('dialogue-annulation');
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+    $('annulation-motif').focus();
+  }
+
+  function fermerAnnulation() {
+    const d = $('dialogue-annulation');
+    if (typeof d.close === 'function') d.close(); else d.removeAttribute('open');
+    annulationEnCours = null;
+  }
+
+  async function confirmerAnnulation(e) {
+    e.preventDefault();
+    if (!annulationEnCours) return;
+    const bouton = $('annulation-confirmer');
+    if (bouton.disabled) return;
+    occupe(bouton, true, 'Annulation…');
+    const r = await api('annuler', { eventId: annulationEnCours, motif: $('annulation-motif').value });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') { fermerAnnulation(); return; }
+    if (!r.ok) { message(r.erreur, true); return; }
+    fermerAnnulation();
+    message(r.message);
+    chargerSessions();
+  }
+
+  // ---------- Réglages ----------
+  const TEXTES_PERIMETRE = {
+    mes: 'Me prévenir quand quelqu\'un s\'inscrit ou se désinscrit d\'une séance où je suis inscrit·e',
+    cours: 'Me prévenir quand quelqu\'un s\'inscrit ou se désinscrit d\'un cours',
+    tout: 'Me prévenir quand quelqu\'un s\'inscrit ou se désinscrit d\'un cours ou d\'une session libre'
+  };
+
+  function afficherReglages() {
+    const u = etat.utilisateur || {};
+    const d = droits();
+    const groupe = u.groupe === 'Tous' ? 'tous les groupes' : (u.groupe ? 'groupe ' + u.groupe : 'sans groupe');
+    $('reglages-compte').textContent =
+      `${[u.prenom, u.nom].filter(Boolean).join(' ')} · ${ROLES[u.role] || u.role || ''} · ${groupe}\n${u.email || ''}`;
+    afficherZoneNotifications();
+
+    const bloc = $('bloc-notif-inscriptions');
+    if (!d.notifInscriptions || d.notifInscriptions === 'jamais') { bloc.hidden = true; return; }
+    bloc.hidden = false;
+    const caseNotif = $('notif-inscriptions');
+    caseNotif.checked = !!u.notifInscriptions;
+    caseNotif.disabled = d.notifInscriptions === 'toujours';
+    $('notif-inscriptions-texte').textContent = TEXTES_PERIMETRE[d.perimetreNotif] || TEXTES_PERIMETRE.mes;
+    const pushActif = pushPossible() && Notification.permission === 'granted' && lirePush();
+    $('notif-inscriptions-aide').textContent = d.notifInscriptions === 'toujours'
+      ? 'Toujours activé pour votre rôle' + (pushActif ? '.' : ' : sans notification sur ce téléphone, vous les recevez par e-mail.')
+      : (pushActif ? 'Les alertes arrivent en notification sur ce téléphone.'
+                   : 'Activez les notifications sur ce téléphone pour les recevoir.');
+  }
+
+  async function changerNotifInscriptions(e) {
+    const caseNotif = e.target;
+    caseNotif.disabled = true;
+    const r = await api('reglages', { reglages: { notifInscriptions: caseNotif.checked } });
+    caseNotif.disabled = false;
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { caseNotif.checked = !caseNotif.checked; message(r.erreur, true); return; }
+    etat.utilisateur = r.utilisateur;
+    enregistrerSession();
+    message(r.message);
+    afficherReglages();
   }
 
   // ---------- Installation sur l'écran d'accueil ----------
@@ -507,6 +739,19 @@
     $('btn-changer-email').addEventListener('click', afficherConnexion);
     $('btn-deconnexion').addEventListener('click', seDeconnecter);
     $('btn-actualiser').addEventListener('click', chargerSessions);
+    $('onglets').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-onglet]');
+      if (b) afficherOnglet(b.dataset.onglet);
+    });
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('.btn-activer-push');
+      if (b) activerNotifications(b);
+    });
+    initialiserGestion();
+    $('notif-inscriptions').addEventListener('change', changerNotifInscriptions);
+    $('form-annulation').addEventListener('submit', confirmerAnnulation);
+    $('annulation-retour').addEventListener('click', fermerAnnulation);
+    $('dialogue-annulation').addEventListener('close', () => { annulationEnCours = null; });
     $('liste-sessions').addEventListener('click', surClicListe);
     $('form-programme').addEventListener('submit', enregistrerProgramme);
     $('prog-annuler').addEventListener('click', fermerProgramme);
