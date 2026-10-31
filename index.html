@@ -29,6 +29,12 @@
     </div>
   </header>
 
+  <nav id="onglets" class="onglets" aria-label="Rubriques" hidden>
+    <button type="button" data-onglet="sessions" aria-current="page">Séances</button>
+    <button type="button" data-onglet="gestion" id="onglet-gestion" hidden>Gestion</button>
+    <button type="button" data-onglet="reglages">Réglages</button>
+  </nav>
+
   <main id="contenu">
     <!-- Connexion -->
     <section id="ecran-connexion" class="ecran" hidden>
@@ -58,12 +64,118 @@
     <!-- Sessions -->
     <section id="ecran-sessions" class="ecran" hidden>
       <div class="barre-outils">
-        <h2>Sessions à venir</h2>
+        <h2>Séances à venir</h2>
         <button id="btn-actualiser" class="bouton discret" type="button">Actualiser</button>
       </div>
       <div id="aide-installation" class="aide-installation" hidden></div>
       <div id="zone-notifications" class="aide-installation" hidden></div>
       <div id="liste-sessions" aria-live="polite"></div>
+    </section>
+
+    <!-- Gestion (animatrices, bureau, admin) -->
+    <section id="ecran-gestion" class="ecran" hidden>
+      <div class="barre-outils">
+        <h2>Gestion</h2>
+      </div>
+
+      <div id="bloc-absences" class="panneau large" hidden>
+        <h3>Absences de l'animatrice</h3>
+        <p class="aide-champ">Pas de cours pendant ces périodes : les cours déjà créés sont annulés
+          et les participants prévenus. Supprimer une absence recrée les cours.</p>
+        <ul id="liste-absences" class="liste-absences"></ul>
+        <details class="depliant">
+          <summary>Déclarer une absence</summary>
+          <form id="form-absence" class="formulaire" novalidate>
+            <div class="rangee">
+              <div><label for="abs-debut">Du</label><input id="abs-debut" type="date" required></div>
+              <div><label for="abs-fin">Au (facultatif)</label><input id="abs-fin" type="date"></div>
+            </div>
+            <label for="abs-motif">Motif affiché aux adhérents</label>
+            <input id="abs-motif" type="text" maxlength="100" placeholder="Ex. : absence de l'animatrice">
+            <button class="bouton principal" type="submit">Enregistrer l'absence</button>
+          </form>
+        </details>
+      </div>
+
+      <div id="bloc-cours" class="panneau large" hidden>
+        <h3>Cours exceptionnel</h3>
+        <p class="aide-champ">En plus du planning régulier. Le groupe choisi et les animatrices sont invités.</p>
+        <details class="depliant">
+          <summary>Créer un cours</summary>
+          <form id="form-cours" class="formulaire" novalidate>
+            <div class="rangee">
+              <div><label for="cours-date">Date</label><input id="cours-date" type="date" required></div>
+              <div><label for="cours-heure">Heure</label><input id="cours-heure" type="time" required></div>
+            </div>
+            <div class="rangee">
+              <div><label for="cours-duree">Durée (min)</label><input id="cours-duree" type="number" min="15" max="600" step="15"></div>
+              <div><label for="cours-groupe">Groupe</label><select id="cours-groupe"></select></div>
+            </div>
+            <div class="rangee">
+              <div><label for="cours-places">Places</label><input id="cours-places" type="number" min="1" max="100" placeholder="Auto"></div>
+              <div><label for="cours-lieu">Lieu</label><input id="cours-lieu" type="text" maxlength="100"></div>
+            </div>
+            <label for="cours-activite">Activité</label>
+            <input id="cours-activite" type="text" maxlength="80" placeholder="Ex. : trousse zippée doublée">
+            <label for="cours-description">Description</label>
+            <textarea id="cours-description" rows="3" maxlength="800"></textarea>
+            <label for="cours-fournitures">Fournitures à apporter</label>
+            <p class="aide-champ">Une par ligne.</p>
+            <textarea id="cours-fournitures" rows="4"></textarea>
+            <button class="bouton principal" type="submit">Créer le cours</button>
+          </form>
+        </details>
+      </div>
+
+      <div id="bloc-session" class="panneau large" hidden>
+        <h3>Session libre</h3>
+        <p class="aide-champ">Ouverte à tous les adhérents, sur inscription.</p>
+        <details class="depliant">
+          <summary>Créer une session libre</summary>
+          <form id="form-session" class="formulaire" novalidate>
+            <div class="rangee">
+              <div><label for="session-date">Date</label><input id="session-date" type="date" required></div>
+              <div><label for="session-heure">Heure</label><input id="session-heure" type="time" required></div>
+            </div>
+            <div class="rangee">
+              <div><label for="session-duree">Durée (min)</label><input id="session-duree" type="number" min="15" max="600" step="15"></div>
+              <div><label for="session-places">Places</label><input id="session-places" type="number" min="1" max="100"></div>
+            </div>
+            <label for="session-titre">Titre</label>
+            <input id="session-titre" type="text" maxlength="80" placeholder="Session libre">
+            <label for="session-lieu">Lieu</label>
+            <input id="session-lieu" type="text" maxlength="100">
+            <label for="session-description">Description</label>
+            <textarea id="session-description" rows="3" maxlength="800"></textarea>
+            <button class="bouton principal" type="submit">Créer la session</button>
+          </form>
+        </details>
+      </div>
+
+      <p id="lien-formulaire" class="aide-champ" hidden></p>
+    </section>
+
+    <!-- Réglages -->
+    <section id="ecran-reglages" class="ecran" hidden>
+      <div class="barre-outils">
+        <h2>Réglages</h2>
+      </div>
+      <div class="panneau large">
+        <h3>Mon compte</h3>
+        <p id="reglages-compte"></p>
+      </div>
+      <div class="panneau large">
+        <h3>Notifications sur ce téléphone</h3>
+        <div id="reglages-push"></div>
+      </div>
+      <div id="bloc-notif-inscriptions" class="panneau large" hidden>
+        <h3>Inscriptions et désinscriptions</h3>
+        <label class="interrupteur">
+          <input id="notif-inscriptions" type="checkbox">
+          <span id="notif-inscriptions-texte"></span>
+        </label>
+        <p id="notif-inscriptions-aide" class="aide-champ"></p>
+      </div>
     </section>
 
     <p id="chargement" class="chargement" hidden>Chargement…</p>
@@ -97,6 +209,20 @@
       <div class="actions-dialogue">
         <button id="prog-annuler" class="bouton discret" type="button">Annuler</button>
         <button id="prog-enregistrer" class="bouton principal" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-annulation" class="dialogue" aria-labelledby="titre-annulation">
+    <form id="form-annulation" novalidate>
+      <h2 id="titre-annulation">Annuler la séance</h2>
+      <p id="annulation-date" class="sous-titre"></p>
+      <label for="annulation-motif">Motif (envoyé aux participants)</label>
+      <input id="annulation-motif" type="text" maxlength="100" placeholder="Ex. : salle indisponible">
+      <p class="aide-champ">Les participants reçoivent l'annulation dans leur agenda et une notification.</p>
+      <div class="actions-dialogue">
+        <button id="annulation-retour" class="bouton discret" type="button">Retour</button>
+        <button id="annulation-confirmer" class="bouton danger" type="submit">Annuler la séance</button>
       </div>
     </form>
   </dialog>
