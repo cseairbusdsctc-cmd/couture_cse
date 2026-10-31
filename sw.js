@@ -1,6 +1,6 @@
 // Service worker : met en cache l'interface pour un démarrage rapide.
 // Les appels à l'API (script.google.com) ne sont jamais mis en cache.
-const VERSION = 'couture-v7';
+const VERSION = 'couture-v8';
 
 // Notifications push : Firebase affiche lui-même les notifications reçues quand l'appli est fermée,
 // et ouvre l'application au toucher (lien fourni par le script).
