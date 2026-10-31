@@ -113,7 +113,7 @@ label {
   margin-bottom: 6px;
 }
 
-input {
+input, select {
   width: 100%;
   font: inherit;
   padding: 12px 14px;
@@ -124,7 +124,7 @@ input {
   margin-bottom: 16px;
 }
 
-input:focus, textarea:focus { border-color: var(--indigo); outline: none; }
+input:focus, textarea:focus, select:focus { border-color: var(--indigo); outline: none; }
 
 textarea {
   width: 100%;
@@ -465,3 +465,105 @@ textarea {
 }
 
 .actions-dialogue .bouton.principal { width: auto; }
+
+/* ---------- Onglets ---------- */
+.onglets {
+  max-width: 720px;
+  margin: 0 auto 8px;
+  padding: 0 20px;
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--trait);
+}
+
+.onglets button {
+  font: inherit;
+  font-weight: 700;
+  color: var(--gris);
+  background: none;
+  border: none;
+  padding: 10px 14px 12px;
+  margin-bottom: -2px;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.onglets button[aria-current="page"] {
+  color: var(--indigo);
+  border-bottom-color: var(--fil);
+}
+
+/* ---------- Gestion et réglages ---------- */
+.panneau.large { max-width: none; margin-bottom: 12px; }
+.panneau h3 {
+  font-family: var(--titre);
+  font-weight: 600;
+  font-size: 1.15rem;
+  margin: 0 0 6px;
+}
+.panneau .aide-champ { margin: 0 0 10px; }
+
+.depliant { margin-top: 8px; }
+.depliant > summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--indigo);
+  padding: 8px 0;
+}
+.depliant[open] > summary { margin-bottom: 12px; }
+
+.formulaire .bouton.principal { margin-top: 4px; }
+.rangee { display: flex; gap: 12px; }
+.rangee > div { flex: 1; min-width: 0; }
+
+.liste-absences { list-style: none; margin: 0; padding: 0; }
+.liste-absences li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--trait);
+}
+.liste-absences .vide-liste { color: var(--gris); }
+
+#reglages-compte { white-space: pre-line; margin: 0; }
+#reglages-push p { margin: 0; }
+
+.interrupteur {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-weight: 400;
+  cursor: pointer;
+  margin: 4px 0 8px;
+}
+.interrupteur input {
+  width: 22px;
+  height: 22px;
+  margin: 2px 0 0;
+  flex: none;
+  accent-color: var(--indigo);
+}
+
+/* ---------- Encadrement et annulation ---------- */
+.encadrement { margin: 4px 0 0; font-size: 0.95rem; color: var(--gris); }
+
+.session .edition {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+}
+
+.lien-danger { color: var(--erreur); }
+
+.bouton.danger {
+  background: var(--erreur);
+  color: #fff;
+}
+
+@media (max-width: 380px) {
+  .rangee { flex-direction: column; gap: 0; }
+}
