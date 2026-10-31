@@ -15,5 +15,5 @@ self.APP_CONFIG = {
     appId: '1:710573532136:web:1209ae5e5f65a605f9fa5d'
   },
   // Cloud Messaging → Certificats Web Push → clé publique
-  VAPID_KEY: ''
+  VAPID_KEY: 'BL4YCoBY5cQWkTTSzWF2qfvSZuxLpyeHtBIjYn6s7hZ-vN0B_yTyqv6AoyPYYZRr80X0xHZ4O48mR7sser1pjcc'
 };
