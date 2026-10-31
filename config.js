@@ -1,7 +1,7 @@
 // « self » fonctionne à la fois dans la page et dans le service worker.
 self.APP_CONFIG = {
   // URL de déploiement de l'application Web Apps Script (se termine par /exec)
-  API_URL: 'https://script.google.com/macros/s/AKfycbwebGB1WNEZWQaj5dLlrZuHkIU5yzr6JE8YlwheYOHIYO_X77fk02wCJv_iYRNSpldE/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbyrwc6UmwyAp9zUDK1ZHV4GdMPhvwfYtn-ZzIIyrVsPN1hUO-kOfjINz8Zocv-Y58hv/exec',
   NOM: 'Ateliers couture',
   SOUS_TITRE: 'CSE — réservation des sessions',
 
