@@ -431,7 +431,8 @@
       ecouterAuPremierPlan();
       message(r.message);
     } catch (e) {
-      message('Impossible d\'activer les notifications sur cet appareil.', true);
+      console.error('Activation des notifications', e);
+      message('Impossible d\'activer les notifications : ' + expliquerErreurPush(e), true);
     } finally {
       afficherZoneNotifications();
       if (!$('ecran-reglages').hidden) afficherReglages();
@@ -449,7 +450,8 @@
         'Autorisez-les dans les réglages du téléphone.' };
     }
     if (Notification.permission === 'granted' && lirePush()) {
-      return { visible: false, html: 'Activées sur ce téléphone.' };
+      return { visible: false, html: 'Activées sur ce téléphone. ' +
+        '<button class="lien btn-tester-push" type="button">Envoyer une notification de test</button>' };
     }
     return { visible: true, html: 'Recevez une notification sur ce téléphone : place libérée, rappel, ' +
       'programme d\'un cours, inscriptions. ' +
@@ -462,6 +464,27 @@
     zone.innerHTML = etatPush.html;
     zone.hidden = !etatPush.visible;
     $('reglages-push').innerHTML = `<p>${etatPush.html}</p>`;
+  }
+
+  /** Message compréhensible à partir d'une erreur Firebase. */
+  function expliquerErreurPush(e) {
+    const t = String((e && (e.code || '')) + ' ' + (e && e.message || ''));
+    if (/permission-blocked|permission-default/.test(t)) return 'autorisation refusée dans le navigateur.';
+    if (/unsupported-browser/.test(t)) return 'navigateur non compatible (sur iPhone, installez d\'abord l\'appli sur l\'écran d\'accueil).';
+    if (/failed-service-worker-registration|no-sw-in-reg|service.?worker/i.test(t)) return 'service worker indisponible : rechargez la page.';
+    if (/token-subscribe-failed|installations|API key|api-key|403|PERMISSION_DENIED/i.test(t)) {
+      return 'configuration Firebase refusée : vérifiez FIREBASE et VAPID_KEY dans config.js.';
+    }
+    if (/invalid.*vapid|applicationServerKey/i.test(t)) return 'VAPID_KEY invalide dans config.js.';
+    return (e && (e.code || e.message)) || 'erreur inconnue';
+  }
+
+  async function testerNotification(bouton) {
+    occupe(bouton, true, 'Envoi…');
+    const r = await api('testerNotification');
+    occupe(bouton, false);
+    if (r.code === 'AUTH') return;
+    message(r.ok ? r.message : r.erreur, !r.ok);
   }
 
   // ---------- Programme des cours (animatrices) ----------
@@ -746,6 +769,8 @@
     document.addEventListener('click', (e) => {
       const b = e.target.closest('.btn-activer-push');
       if (b) activerNotifications(b);
+      const t = e.target.closest('.btn-tester-push');
+      if (t) testerNotification(t);
     });
     initialiserGestion();
     $('notif-inscriptions').addEventListener('change', changerNotifInscriptions);
