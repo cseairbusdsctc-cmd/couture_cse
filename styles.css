@@ -567,3 +567,120 @@ textarea {
 @media (max-width: 380px) {
   .rangee { flex-direction: column; gap: 0; }
 }
+
+/* ---------- Réglages administrateur ---------- */
+.choix { border: none; margin: 4px 0 0; padding: 0; }
+.choix legend { font-weight: 700; padding: 0; margin-bottom: 8px; }
+.option {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-weight: 400;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 2px solid var(--trait);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.option:has(input:checked) { border-color: var(--indigo); background: var(--chambray); }
+.option input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex: none;
+  accent-color: var(--indigo);
+}
+
+/* ---------- Adhérents (administrateurs) ---------- */
+.filtres input[type=search] { margin-bottom: 8px; }
+.filtres select { margin-bottom: 8px; }
+.liste-adherents { list-style: none; margin: 0; padding: 0; }
+.liste-adherents li { margin-bottom: 8px; }
+.ligne-adherent {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--encre);
+  background: var(--toile);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+.ligne-adherent:hover { border-color: var(--trait); }
+.ligne-adherent.suspendu { opacity: 0.65; }
+.adh-nom { display: block; font-weight: 700; }
+.adh-moi { font-weight: 400; color: var(--gris); }
+.adh-email { display: block; color: var(--gris); font-size: 0.9rem; overflow-wrap: anywhere; }
+.adh-etiquettes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.adh-etiquettes .badge { margin: 0; }
+.badge-alerte { color: var(--erreur); }
+.actions-compte {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 4px 0 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--trait);
+}
+select:disabled { color: var(--gris); background: var(--chambray); }
+.donnees {
+  white-space: pre-wrap;
+  font-family: var(--texte);
+  font-size: 0.85rem;
+  background: var(--chambray);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 55vh;
+  overflow: auto;
+}
+
+/* Barre d'onglets : 4 onglets pour l'admin, sans débordement sur petit écran */
+.onglets {
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 0;
+}
+.onglets::-webkit-scrollbar { display: none; }
+.onglets button {
+  flex: 1 0 auto;
+  white-space: nowrap;
+  padding: 10px 10px 12px;
+  font-size: 0.95rem;
+}
+@media (max-width: 360px) {
+  .onglets { padding: 0 8px; }
+  .onglets button { padding: 10px 6px 12px; font-size: 0.9rem; }
+}
+
+/* ---------- Outils (administrateurs) ---------- */
+.etat { margin: 0; display: grid; grid-template-columns: 1fr; gap: 2px; }
+.etat dt { font-weight: 700; font-size: 0.9rem; color: var(--gris); margin-top: 8px; }
+.etat dd { margin: 0; }
+.etat dd.alerte { color: var(--erreur); }
+.etat a { color: var(--indigo); }
+.grille-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.grille-boutons .bouton { width: 100%; }
+.liste-actions > div { padding: 8px 0; border-bottom: 1px solid var(--trait); }
+.liste-actions > div:last-child { border-bottom: none; }
+.liste-actions .aide-champ { margin: 6px 0 0; }
+.bouton-danger-discret { color: var(--erreur); }
+#diag-resultat { margin-top: 4px; }
+#diag-resultat .ligne-alerte { color: var(--erreur); font-weight: 700; }
+#diag-resultat .ligne-ok { color: #2F6B3B; }
+.journal { list-style: none; margin: 8px 0 0; padding: 0; max-height: 60vh; overflow: auto; font-size: 0.85rem; }
+.journal li { padding: 6px 0; border-bottom: 1px solid var(--trait); display: grid; grid-template-columns: auto 1fr; gap: 0 10px; }
+.journal li.erreur .j-action { color: var(--erreur); }
+.j-date { color: var(--gris); white-space: nowrap; }
+.j-action { font-weight: 700; overflow-wrap: anywhere; }
+.j-detail { grid-column: 1 / -1; color: var(--gris); overflow-wrap: anywhere; }
+.sous-titre-bloc { font-weight: 700; color: var(--indigo); margin: 12px 0 8px; }
+input:disabled { color: var(--gris); background: var(--chambray); }
+
+/* Barre d'onglets : jusqu'à 5 onglets (admin) */
+@media (max-width: 440px) {
+  .onglets { padding: 0 10px; }
+  .onglets button { padding: 10px 7px 12px; font-size: 0.88rem; }
+}
