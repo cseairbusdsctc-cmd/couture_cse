@@ -72,7 +72,7 @@
   }
 
   // ---------- Écrans ----------
-  const ECRANS = ['sessions', 'gestion', 'reglages'];
+  const ECRANS = ['sessions', 'gestion', 'adherents', 'outils', 'reglages'];
 
   function afficherConnexion() {
     ECRANS.forEach((e) => { $('ecran-' + e).hidden = true; });
@@ -104,6 +104,8 @@
     const groupe = u.groupe === 'Tous' ? ' · tous les groupes' : (u.groupe ? ` · groupe ${u.groupe}` : '');
     $('nom-utilisateur').textContent = ([u.prenom, u.nom].filter(Boolean).join(' ') || u.email || '') + groupe;
     $('onglet-gestion').hidden = !(droits().creerCours || droits().creerLibre);
+    $('onglet-adherents').hidden = !droits().gererAdherents;
+    $('onglet-outils').hidden = !droits().outils;
   }
 
   function afficherSessions() {
@@ -125,6 +127,8 @@
 
   function afficherOnglet(nom) {
     if (nom === 'gestion' && $('onglet-gestion').hidden) nom = 'sessions';
+    if (nom === 'adherents' && $('onglet-adherents').hidden) nom = 'sessions';
+    if (nom === 'outils' && $('onglet-outils').hidden) nom = 'sessions';
     ECRANS.forEach((e) => { $('ecran-' + e).hidden = e !== nom; });
     document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
       if (b.dataset.onglet === nom) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -132,6 +136,8 @@
     if (nom === 'sessions') chargerSessions();
     if (nom === 'gestion') chargerGestion();
     if (nom === 'reglages') afficherReglages();
+    if (nom === 'adherents') chargerAdherents();
+    if (nom === 'outils') chargerOutils();
   }
 
   // ---------- Connexion ----------
@@ -257,7 +263,7 @@
       statut = '<span class="statut ferme">Absence signalée</span>';
       action = bouton('inscrire', 'Finalement, je viens', 'principal');
     } else if (cours && !s.monGroupe) {
-      statut = '<span class="statut">Place disponible pour les autres groupes</span>';
+      statut = `<span class="statut">${(etat.utilisateur || {}).groupe ? 'Place disponible pour les autres groupes' : 'Place disponible'}</span>`;
       action = bouton('inscrire', 'Prendre la place', 'principal');
     } else {
       action = bouton('inscrire', 'M\'inscrire', 'principal');
@@ -283,7 +289,11 @@
       ? `<button class="lien lien-danger" type="button" data-action="annuler" data-id="${id}">${
           cours ? 'Annuler ce cours' : 'Annuler cette session'}</button>`
       : '';
-    const liens = [editionProgramme, annulation].filter(Boolean).join('');
+    const modification = s.edition
+      ? `<button class="lien" type="button" data-action="modifier" data-id="${id}">${
+          cours ? 'Modifier ce cours' : 'Modifier cette session'}</button>`
+      : '';
+    const liens = [editionProgramme, modification, annulation].filter(Boolean).join('');
     const actions = action || liens
       ? `<div class="actions">${action}${liens ? `<div class="edition">${liens}</div>` : ''}</div>`
       : '';
@@ -341,6 +351,10 @@
     }
     if (action === 'annuler') {
       ouvrirAnnulation(bouton.dataset.id);
+      return;
+    }
+    if (action === 'modifier') {
+      ouvrirModificationSeance(bouton.dataset.id);
       return;
     }
     if (action === 'desinscrire') {
@@ -680,6 +694,7 @@
     $('reglages-compte').textContent =
       `${[u.prenom, u.nom].filter(Boolean).join(' ')} · ${ROLES[u.role] || u.role || ''} · ${groupe}\n${u.email || ''}`;
     afficherZoneNotifications();
+    chargerReglagesAdmin();
 
     const bloc = $('bloc-notif-inscriptions');
     if (!d.notifInscriptions || d.notifInscriptions === 'jamais') { bloc.hidden = true; return; }
@@ -695,6 +710,98 @@
                    : 'Activez les notifications sur ce téléphone pour les recevoir.');
   }
 
+  async function chargerReglagesAdmin() {
+    const bloc = $('bloc-reglages-admin');
+    if (!droits().reglagesAdmin) { bloc.hidden = true; return; }
+    const r = await api('reglagesAdmin');
+    if (!r.ok) { if (r.code !== 'AUTH') message(r.erreur, true); bloc.hidden = true; return; }
+    bloc.hidden = false;
+    document.querySelectorAll('input[name=animatrice-libres]').forEach((b) => {
+      b.checked = b.value === r.reglages.animatriceLibres;
+    });
+    remplirReglagesCours(r);
+  }
+
+  const CHAMPS_RG = {
+    coursActifs: 'rg-cours-actifs', jour: 'rg-jour', heureDebut: 'rg-heure', dureeMinutes: 'rg-duree',
+    places: 'rg-places', lieu: 'rg-lieu', dateReference: 'rg-reference', alternance: 'rg-alternance',
+    fermetureHeures: 'rg-fermeture', rappelHeures: 'rg-rappel', placesLibre: 'rg-places-libre',
+    dureeLibre: 'rg-duree-libre', lieuLibre: 'rg-lieu-libre'
+  };
+  let reglagesCharges = {};
+
+  function remplirReglagesCours(r) {
+    $('bloc-reglages-cours').hidden = false;
+    reglagesCharges = r.reglages;
+    Object.keys(CHAMPS_RG).forEach((k) => {
+      const el = $(CHAMPS_RG[k]);
+      const v = r.reglages[k];
+      if (el.type === 'checkbox') el.checked = !!v; else el.value = v == null ? '' : v;
+      const d = r.defauts && r.defauts[k];
+      el.title = d == null || d === '' ? '' : `Valeur par défaut : ${d === true ? 'oui' : d === false ? 'non' : d}`;
+    });
+    if (r.groupes && r.groupes.length) $('lbl-reference').textContent = `Date où ${r.groupes[0]} a cours`;
+    $('rg-appliquer').checked = false;
+  }
+
+  async function enregistrerReglagesCours(e) {
+    e.preventDefault();
+    const bouton = e.target.querySelector('button[type=submit]');
+    if (bouton.disabled) return;
+    const donnees = {};
+    Object.keys(CHAMPS_RG).forEach((k) => {
+      const el = $(CHAMPS_RG[k]);
+      const v = el.type === 'checkbox' ? el.checked : el.value;
+      const avant = reglagesCharges[k];
+      if (String(v) !== String(avant == null ? '' : avant)) donnees[k] = v;
+    });
+    if (!Object.keys(donnees).length) { message('Aucun changement.'); return; }
+    const appliquer = $('rg-appliquer').checked;
+    if (appliquer && donnees.jour !== undefined && !window.confirm(
+      'Changer le jour et l\'appliquer aux cours déjà planifiés : ces cours seront ANNULÉS (participants prévenus) ' +
+      'puis recréés au nouveau jour. Continuer ?')) return;
+    donnees.appliquerExistants = appliquer;
+    occupe(bouton, true, 'Enregistrement…');
+    const r = await api('reglagesAdmin', { reglages: donnees });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); return; }
+    message(r.message);
+    remplirReglagesCours(r);
+  }
+
+  async function reinitialiserReglagesCours() {
+    if (!window.confirm('Revenir aux valeurs du fichier Config.gs pour tous les réglages des cours et des séances ? ' +
+      'Les cours déjà planifiés ne sont pas modifiés.')) return;
+    const r = await api('reglagesAdmin', { reglages: { reinitialiser: true } });
+    if (r.code === 'AUTH') return;
+    message(r.ok ? r.message : r.erreur, !r.ok);
+    if (r.ok) remplirReglagesCours(r);
+  }
+
+  async function apercuPlanning(e) {
+    occupe(e.target, true, 'Calcul…');
+    const r = await api('outilsDiagnostic', { type: 'planning' });
+    occupe(e.target, false);
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); return; }
+    $('donnees-qui').textContent = 'Planning des 16 prochaines semaines';
+    $('titre-donnees').textContent = 'Planning';
+    $('donnees-texte').textContent = r.lignes.join('\n');
+    $('donnees-envoyer').hidden = true;
+    ouvrirDialogue($('dialogue-donnees'));
+  }
+
+  async function changerAnimatriceLibres(e) {
+    const boutons = document.querySelectorAll('input[name=animatrice-libres]');
+    boutons.forEach((b) => { b.disabled = true; });
+    const r = await api('reglagesAdmin', { reglages: { animatriceLibres: e.target.value } });
+    boutons.forEach((b) => { b.disabled = false; });
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); chargerReglagesAdmin(); return; }
+    message(r.message);
+  }
+
   async function changerNotifInscriptions(e) {
     const caseNotif = e.target;
     caseNotif.disabled = true;
@@ -706,6 +813,333 @@
     enregistrerSession();
     message(r.message);
     afficherReglages();
+  }
+
+  // ---------- Adhérents (administrateurs) ----------
+  const LIBELLES_ROLE = { adherent: 'Adhérent·e', animatrice: 'Animatrice', bureau: 'Bureau', admin: 'Admin' };
+  let adherents = [];
+  let infosAdherents = { groupes: [], roles: [] };
+  let adherentEnCours = null;      // adresse d'origine (modification) ou '' (création)
+
+  const ouvrirDialogue = (d) => { if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', ''); };
+  const fermerDialogue = (d) => { if (typeof d.close === 'function') d.close(); else d.removeAttribute('open'); };
+
+  async function chargerAdherents() {
+    const r = await api('listerAdherents');
+    if (!r.ok) { if (r.code !== 'AUTH') message(r.erreur, true); return; }
+    adherents = r.adherents;
+    const premierChargement = !infosAdherents.roles.length;
+    infosAdherents = { groupes: r.groupes, roles: r.roles, quota: r.quotaEmails };
+    $('quota-adherents').textContent = `E-mails encore disponibles aujourd'hui : ${r.quotaEmails} (chaque ajout envoie un e-mail de bienvenue).`;
+    if (premierChargement) {
+      $('filtre-groupe').innerHTML = '<option value="*">Tous</option>' +
+        r.groupes.map((g) => `<option value="${echapper(g)}">${echapper(g)}</option>`).join('') +
+        '<option value="">Sans groupe</option>';
+      $('filtre-role').innerHTML = '<option value="*">Tous</option>' +
+        r.roles.map((x) => `<option value="${x}">${LIBELLES_ROLE[x] || x}</option>`).join('') +
+        '<option value="suspendu">Comptes suspendus</option>';
+      $('adh-role').innerHTML = r.roles.map((x) => `<option value="${x}">${LIBELLES_ROLE[x] || x}</option>`).join('');
+      $('adh-groupe').innerHTML = '<option value="">Aucun groupe</option>' +
+        r.groupes.map((g) => `<option value="${echapper(g)}">${echapper(g)}</option>`).join('');
+    }
+    rendreAdherents();
+  }
+
+  function rendreAdherents() {
+    const q = $('recherche-adherent').value.trim().toLowerCase();
+    const fg = $('filtre-groupe').value;
+    const fr = $('filtre-role').value;
+    const liste = adherents.filter((a) =>
+      (!q || `${a.prenom} ${a.nom} ${a.email}`.toLowerCase().includes(q)) &&
+      (fg === '*' || (a.role !== 'animatrice' && a.groupe === fg)) &&
+      (fr === '*' || (fr === 'suspendu' ? !a.actif : a.role === fr)));
+    const actifs = adherents.filter((a) => a.actif).length;
+    $('compte-adherents').textContent = `${adherents.length} adhérent${adherents.length > 1 ? 's' : ''}, ${actifs} actif${actifs > 1 ? 's' : ''}` +
+      (liste.length !== adherents.length ? ` · ${liste.length} affiché${liste.length > 1 ? 's' : ''}` : '');
+    $('liste-adherents').innerHTML = liste.length ? liste.map((a) => {
+      const groupe = a.role === 'animatrice' ? 'tous les cours' : (a.groupe ? 'groupe ' + a.groupe : 'sans groupe');
+      return `<li><button type="button" class="ligne-adherent${a.actif ? '' : ' suspendu'}" data-email="${echapper(a.email)}">
+        <span class="adh-nom">${echapper(`${a.prenom} ${a.nom}`.trim())}${a.moi ? ' <span class="adh-moi">(vous)</span>' : ''}</span>
+        <span class="adh-email">${echapper(a.email)}</span>
+        <span class="adh-etiquettes">
+          <span class="badge${a.role !== 'adherent' ? ' cours' : ''}">${LIBELLES_ROLE[a.role] || a.role}</span>
+          <span class="badge">${echapper(groupe)}</span>
+          ${a.actif ? '' : '<span class="badge badge-alerte">Suspendu</span>'}
+          ${a.notifications ? '<span class="badge" title="Notifications activées">Notifications</span>' : ''}
+        </span></button></li>`;
+    }).join('') : '<li class="vide-liste">Aucun adhérent ne correspond.</li>';
+  }
+
+  function majAideGroupe() {
+    const animatrice = $('adh-role').value === 'animatrice';
+    $('adh-groupe').disabled = animatrice;
+    if (animatrice) $('adh-groupe').value = '';
+    $('adh-aide-groupe').textContent = animatrice
+      ? 'L\'animatrice est invitée à tous les cours : pas de groupe.'
+      : ($('adh-groupe').value
+        ? `Invité·e d'office à chaque cours du groupe ${$('adh-groupe').value}.`
+        : 'Sans groupe : invité·e à aucun cours d\'office, mais peut prendre les places libres et s\'inscrire aux sessions libres.');
+  }
+
+  function ouvrirAdherent(email) {
+    const a = email ? adherents.find((x) => x.email === email) : null;
+    adherentEnCours = a ? a.email : '';
+    $('titre-adherent').textContent = a ? `${a.prenom} ${a.nom}`.trim() : 'Nouvel adhérent';
+    $('adherent-info').textContent = a
+      ? (a.derniereConnexion ? 'Dernière connexion : ' + fmtComplet.format(new Date(a.derniereConnexion)) : 'Ne s\'est pas encore connecté·e')
+      : '';
+    $('adh-prenom').value = a ? a.prenom : '';
+    $('adh-nom').value = a ? a.nom : '';
+    $('adh-email').value = a ? a.email : '';
+    $('adh-role').value = a ? a.role : 'adherent';
+    $('adh-groupe').value = a ? (a.groupe || '') : '';
+    $('adh-actif').checked = a ? a.actif : true;
+    $('ligne-actif').hidden = !a;
+    $('adh-aide-creation').hidden = !!a;
+    $('adh-actions-compte').hidden = !a;
+    $('adh-role').disabled = !!(a && a.moi);
+    $('adh-actif').disabled = !!(a && a.moi);
+    $('adh-supprimer').hidden = !!(a && a.moi);
+    $('adh-bienvenue').hidden = !!(a && !a.actif);
+    $('adh-enregistrer').textContent = a ? 'Enregistrer' : 'Ajouter et envoyer l\'e-mail';
+    majAideGroupe();
+    ouvrirDialogue($('dialogue-adherent'));
+    $('adh-prenom').focus();
+  }
+
+  async function enregistrerAdherent(e) {
+    e.preventDefault();
+    const bouton = $('adh-enregistrer');
+    if (bouton.disabled) return;
+    const a = adherents.find((x) => x.email === adherentEnCours);
+    const actif = $('adh-actif').checked;
+    if (a && a.actif && !actif && !window.confirm(
+      `Suspendre ${a.prenom} ${a.nom} ? Son accès est coupé et sa place est libérée dans toutes les séances à venir.`)) return;
+    occupe(bouton, true, 'Enregistrement…');
+    const r = await api('enregistrerAdherent', { adherent: {
+      emailOrigine: adherentEnCours, email: $('adh-email').value, prenom: $('adh-prenom').value,
+      nom: $('adh-nom').value, role: $('adh-role').value, groupe: $('adh-groupe').value, actif: actif
+    } });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') { fermerDialogue($('dialogue-adherent')); return; }
+    if (!r.ok) { message(r.erreur, true); return; }
+    fermerDialogue($('dialogue-adherent'));
+    message(r.message, r.bienvenueEnvoyee === false);
+    chargerAdherents();
+  }
+
+  async function supprimerAdherent() {
+    const a = adherents.find((x) => x.email === adherentEnCours);
+    if (!a || !window.confirm(`Supprimer définitivement ${a.prenom} ${a.nom} ?\n\n` +
+      'Ses données sont effacées et sa place est libérée dans toutes les séances à venir. Action irréversible.')) return;
+    const b = $('adh-supprimer');
+    occupe(b, true, 'Suppression…');
+    const r = await api('supprimerAdherent', { email: a.email });
+    occupe(b, false);
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); return; }
+    fermerDialogue($('dialogue-adherent'));
+    message(r.message);
+    chargerAdherents();
+  }
+
+  async function renvoyerBienvenue(e) {
+    occupe(e.target, true, 'Envoi…');
+    const r = await api('renvoyerBienvenue', { email: adherentEnCours });
+    occupe(e.target, false);
+    if (r.code !== 'AUTH') message(r.ok ? r.message : r.erreur, !r.ok);
+  }
+
+  async function voirDonnees(e) {
+    occupe(e.target, true, 'Chargement…');
+    const r = await api('donneesAdherent', { email: adherentEnCours });
+    occupe(e.target, false);
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); return; }
+    $('titre-donnees').textContent = 'Données personnelles';
+    $('donnees-qui').textContent = adherentEnCours;
+    $('donnees-texte').textContent = r.lignes.join('\n');
+    $('donnees-envoyer').hidden = false;
+    ouvrirDialogue($('dialogue-donnees'));
+  }
+
+  async function envoyerDonnees(e) {
+    if (!window.confirm(`Envoyer ces données par e-mail à ${adherentEnCours} ?`)) return;
+    occupe(e.target, true, 'Envoi…');
+    const r = await api('donneesAdherent', { email: adherentEnCours, envoyer: true });
+    occupe(e.target, false);
+    if (r.code === 'AUTH') return;
+    message(r.ok ? r.message : r.erreur, !r.ok);
+    if (r.ok) fermerDialogue($('dialogue-donnees'));
+  }
+
+  function initialiserAdherents() {
+    $('btn-ajouter-adherent').addEventListener('click', () => ouvrirAdherent(''));
+    $('liste-adherents').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-email]');
+      if (b) ouvrirAdherent(b.dataset.email);
+    });
+    ['recherche-adherent', 'filtre-groupe', 'filtre-role'].forEach((id) =>
+      $(id).addEventListener('input', rendreAdherents));
+    $('adh-role').addEventListener('change', majAideGroupe);
+    $('adh-groupe').addEventListener('change', majAideGroupe);
+    $('form-adherent').addEventListener('submit', enregistrerAdherent);
+    $('adh-annuler').addEventListener('click', () => fermerDialogue($('dialogue-adherent')));
+    $('adh-supprimer').addEventListener('click', supprimerAdherent);
+    $('adh-bienvenue').addEventListener('click', renvoyerBienvenue);
+    $('adh-donnees').addEventListener('click', voirDonnees);
+    $('donnees-fermer').addEventListener('click', () => fermerDialogue($('dialogue-donnees')));
+    $('donnees-envoyer').addEventListener('click', envoyerDonnees);
+  }
+
+  // ---------- Modifier une séance ----------
+  let seanceEnCours = null;
+
+  function ouvrirModificationSeance(id) {
+    const s = sessionsParId[id];
+    if (!s || !s.edition) return;
+    seanceEnCours = id;
+    const e = s.edition;
+    const cours = s.type === 'cours';
+    $('titre-seance').textContent = cours ? 'Modifier le cours' : 'Modifier la session';
+    $('seance-info').textContent = `${s.titre} · ${e.inscrits} inscrit${e.inscrits > 1 ? 's' : ''}`;
+    $('seance-champs-libre').hidden = cours;
+    $('seance-bloc-description').hidden = cours;
+    $('seance-titre').value = e.titre || '';
+    $('seance-date').value = e.date;
+    $('seance-date').disabled = cours;
+    $('seance-aide-date').hidden = !cours;
+    $('seance-heure').value = e.heure;
+    $('seance-duree').value = e.duree;
+    $('seance-places').value = e.places;
+    $('seance-places').min = Math.max(1, e.inscrits);
+    $('seance-lieu').value = e.lieu || '';
+    $('seance-description').value = e.description || '';
+    ouvrirDialogue($('dialogue-seance'));
+  }
+
+  async function enregistrerSeance(ev) {
+    ev.preventDefault();
+    const s = sessionsParId[seanceEnCours];
+    if (!s) return;
+    const bouton = $('seance-enregistrer');
+    if (bouton.disabled) return;
+    const cours = s.type === 'cours';
+    const donnees = {
+      heure: $('seance-heure').value, duree: $('seance-duree').value,
+      places: $('seance-places').value, lieu: $('seance-lieu').value
+    };
+    if (!cours) Object.assign(donnees, {
+      date: $('seance-date').value, titre: $('seance-titre').value, description: $('seance-description').value
+    });
+    occupe(bouton, true, 'Enregistrement…');
+    const r = await api('modifierSeance', { eventId: seanceEnCours, seance: donnees });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') { fermerDialogue($('dialogue-seance')); return; }
+    if (!r.ok) { message(r.erreur, true); return; }
+    fermerDialogue($('dialogue-seance'));
+    message(r.message);
+    chargerSessions();
+  }
+
+  // ---------- Outils (administrateurs) ----------
+  const fmtJournal = fmt({ day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+  async function chargerOutils() {
+    const r = await api('outilsEtat');
+    if (!r.ok) { if (r.code !== 'AUTH') message(r.erreur, true); return; }
+    const ligne = (titre, valeur, alerte) =>
+      `<dt>${echapper(titre)}</dt><dd${alerte ? ' class="alerte"' : ''}>${valeur}</dd>`;
+    const groupes = Object.entries(r.adherents.parGroupe).map(([g, n]) => `${echapper(g)} : ${n}`).join(' · ');
+    $('outils-etat').innerHTML = [
+      ligne('Version du code', echapper(r.version)),
+      ligne('E-mails restants aujourd\'hui', String(r.quotaEmails), r.quotaEmails < 20),
+      ligne('Adhérents', `${r.adherents.actifs} actifs sur ${r.adherents.total}<br><span class="aide-champ">${groupes}</span>`),
+      ligne('Séances à venir', `${r.seances.cours} cours, ${r.seances.libres} session(s) libre(s)` +
+        (r.coursActifs ? '' : '<br><span class="aide-champ">Création automatique des cours désactivée</span>')),
+      ligne('Connexions / téléphones', `${r.connexions} connexion(s), ${r.telephones} téléphone(s) avec notifications`),
+      ligne('Notifications', r.notifications.ok ? '✅ ' + echapper(r.notifications.detail) : '⚠️ ' + echapper(r.notifications.detail), !r.notifications.ok),
+      ligne('Tâches automatiques', r.declencheurs.manquants.length
+        ? '⚠️ Manquantes : ' + r.declencheurs.manquants.map(echapper).join(', ') + ' — touchez « Réparer les tâches automatiques »'
+        : `✅ ${r.declencheurs.presents.length} déclencheur(s) actif(s)`, r.declencheurs.manquants.length > 0),
+      ligne('Erreurs (7 derniers jours)', r.erreurs7j ? `⚠️ ${r.erreurs7j} — voir le Journal, filtre « Erreurs »` : '✅ aucune', r.erreurs7j > 0),
+      ligne('Formulaire Google', r.formulaire
+        ? `<a href="${echapper(r.formulaire)}" target="_blank" rel="noopener">Ouvrir le formulaire</a>` : 'non créé')
+    ].join('');
+    chargerJournal();
+  }
+
+  async function lancerDiagnostic(e) {
+    const type = e.target.dataset.diagnostic;
+    occupe(e.target, true, 'Analyse…');
+    const r = await api('outilsDiagnostic', { type, email: $('diag-email').value });
+    occupe(e.target, false);
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); return; }
+    const zone = $('diag-resultat');
+    zone.innerHTML = r.lignes.map((l) =>
+      `<span class="${/⚠️|❌/.test(l) ? 'ligne-alerte' : /✅/.test(l) ? 'ligne-ok' : ''}">${echapper(l)}</span>`).join('\n');
+    zone.hidden = false;
+    zone.scrollIntoView({ block: 'nearest' });
+  }
+
+  async function lancerOutil(e) {
+    const outil = e.target.dataset.outil;
+    if (outil === 'deconnecterTous' && !window.confirm('Fermer toutes les connexions (sauf la vôtre) ? Chacun devra redemander un code.')) return;
+    occupe(e.target, true, 'En cours…');
+    const r = await api('outilsAction', { outil });
+    occupe(e.target, false);
+    if (r.code === 'AUTH') return;
+    message(r.ok ? r.message : r.erreur, !r.ok);
+    if (r.ok) chargerOutils();
+  }
+
+  let minuteurJournal;
+  async function chargerJournal() {
+    const r = await api('outilsJournal', { filtre: $('journal-filtre').value, texte: $('journal-texte').value });
+    if (!r.ok) return;
+    $('journal-liste').innerHTML = r.lignes.length ? r.lignes.map((l) =>
+      `<li${l.erreur ? ' class="erreur"' : ''}><span class="j-date">${echapper(fmtJournal.format(new Date(l.date)))}</span>
+        <span class="j-action">${echapper(l.action)}</span>
+        <span class="j-detail">${echapper([l.email, l.detail].filter(Boolean).join(' · '))}</span></li>`).join('')
+      : '<li class="vide-liste">Aucune ligne.</li>';
+  }
+
+  async function testerPushAdherent(e) {
+    occupe(e.target, true, 'Envoi…');
+    const r = await api('outilsDiagnostic', { type: 'push', email: adherentEnCours });
+    occupe(e.target, false);
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); return; }
+    $('titre-donnees').textContent = 'Test des notifications';
+    $('donnees-qui').textContent = adherentEnCours;
+    $('donnees-texte').textContent = r.lignes.join('\n');
+    $('donnees-envoyer').hidden = true;
+    ouvrirDialogue($('dialogue-donnees'));
+  }
+
+  async function deconnecterAdherent(e) {
+    if (!window.confirm(`Déconnecter ${adherentEnCours} de tous ses appareils ? Ses notifications seront aussi désactivées.`)) return;
+    occupe(e.target, true, 'Déconnexion…');
+    const r = await api('deconnecterAdherent', { email: adherentEnCours });
+    occupe(e.target, false);
+    if (r.code !== 'AUTH') message(r.ok ? r.message : r.erreur, !r.ok);
+    if (r.ok) chargerAdherents();
+  }
+
+  function initialiserOutils() {
+    $('btn-actualiser-outils').addEventListener('click', chargerOutils);
+    document.querySelectorAll('[data-diagnostic]').forEach((b) => b.addEventListener('click', lancerDiagnostic));
+    document.querySelectorAll('[data-outil]').forEach((b) => b.addEventListener('click', lancerOutil));
+    $('journal-filtre').addEventListener('change', chargerJournal);
+    $('journal-texte').addEventListener('input', () => { clearTimeout(minuteurJournal); minuteurJournal = setTimeout(chargerJournal, 400); });
+    $('form-reglages-cours').addEventListener('submit', enregistrerReglagesCours);
+    $('rg-defaut').addEventListener('click', reinitialiserReglagesCours);
+    $('rg-apercu').addEventListener('click', apercuPlanning);
+    $('form-seance').addEventListener('submit', enregistrerSeance);
+    $('seance-annuler').addEventListener('click', () => fermerDialogue($('dialogue-seance')));
+    $('adh-tester-push').addEventListener('click', testerPushAdherent);
+    $('adh-deconnecter').addEventListener('click', deconnecterAdherent);
   }
 
   // ---------- Installation sur l'écran d'accueil ----------
@@ -773,7 +1207,11 @@
       if (t) testerNotification(t);
     });
     initialiserGestion();
+    initialiserAdherents();
+    initialiserOutils();
     $('notif-inscriptions').addEventListener('change', changerNotifInscriptions);
+    document.querySelectorAll('input[name=animatrice-libres]').forEach((b) =>
+      b.addEventListener('change', changerAnimatriceLibres));
     $('form-annulation').addEventListener('submit', confirmerAnnulation);
     $('annulation-retour').addEventListener('click', fermerAnnulation);
     $('dialogue-annulation').addEventListener('close', () => { annulationEnCours = null; });
