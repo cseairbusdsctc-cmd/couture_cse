@@ -32,6 +32,8 @@
   <nav id="onglets" class="onglets" aria-label="Rubriques" hidden>
     <button type="button" data-onglet="sessions" aria-current="page">Séances</button>
     <button type="button" data-onglet="gestion" id="onglet-gestion" hidden>Gestion</button>
+    <button type="button" data-onglet="adherents" id="onglet-adherents" hidden>Adhérents</button>
+    <button type="button" data-onglet="outils" id="onglet-outils" hidden>Outils</button>
     <button type="button" data-onglet="reglages">Réglages</button>
   </nav>
 
@@ -155,6 +157,75 @@
       <p id="lien-formulaire" class="aide-champ" hidden></p>
     </section>
 
+    <!-- Adhérents (administrateurs) -->
+    <section id="ecran-adherents" class="ecran" hidden>
+      <div class="barre-outils">
+        <h2>Adhérents</h2>
+        <button id="btn-ajouter-adherent" class="bouton discret" type="button">Ajouter</button>
+      </div>
+      <div class="filtres">
+        <input id="recherche-adherent" type="search" placeholder="Rechercher un nom ou une adresse" aria-label="Rechercher">
+        <div class="rangee">
+          <div><label for="filtre-groupe">Groupe</label><select id="filtre-groupe"></select></div>
+          <div><label for="filtre-role">Rôle</label><select id="filtre-role"></select></div>
+        </div>
+      </div>
+      <p id="compte-adherents" class="aide-champ"></p>
+      <p id="quota-adherents" class="aide-champ"></p>
+      <ul id="liste-adherents" class="liste-adherents"></ul>
+    </section>
+
+    <!-- Outils (administrateurs) -->
+    <section id="ecran-outils" class="ecran" hidden>
+      <div class="barre-outils">
+        <h2>Outils</h2>
+        <button id="btn-actualiser-outils" class="bouton discret" type="button">Actualiser</button>
+      </div>
+      <div class="panneau large">
+        <h3>État du service</h3>
+        <dl id="outils-etat" class="etat"></dl>
+      </div>
+      <div class="panneau large">
+        <h3>Diagnostics</h3>
+        <p class="aide-champ">Vérifient le fonctionnement et indiquent quoi corriger (⚠️).</p>
+        <div class="grille-boutons">
+          <button class="bouton discret" type="button" data-diagnostic="general">État général</button>
+          <button class="bouton discret" type="button" data-diagnostic="cours">Cours et groupes</button>
+          <button class="bouton discret" type="button" data-diagnostic="planning">Planning 16 semaines</button>
+          <button class="bouton discret" type="button" data-diagnostic="push">Notifications</button>
+        </div>
+        <label for="diag-email">Adresse pour le test des notifications (facultatif)</label>
+        <input id="diag-email" type="email" placeholder="Vide : téléphone enregistré le plus récemment">
+        <pre id="diag-resultat" class="donnees" hidden></pre>
+      </div>
+      <div class="panneau large">
+        <h3>Actions</h3>
+        <div class="liste-actions">
+          <div><button class="bouton discret" type="button" data-outil="planifier">Planifier maintenant</button>
+            <p class="aide-champ">Crée les cours, invite les membres manquants, applique les programmes (sinon : automatique toutes les heures).</p></div>
+          <div><button class="bouton discret" type="button" data-outil="declencheurs">Réparer les tâches automatiques</button>
+            <p class="aide-champ">Réinstalle les déclencheurs (rappels, planification, ménage, détection des réponses, formulaire).</p></div>
+          <div><button class="bouton discret" type="button" data-outil="formulaire">Reconstruire le formulaire Google</button>
+            <p class="aide-champ">Remet les questions à jour. Le lien du formulaire ne change pas.</p></div>
+          <div><button class="bouton discret bouton-danger-discret" type="button" data-outil="deconnecterTous">Déconnecter tout le monde</button>
+            <p class="aide-champ">Ferme toutes les connexions (sauf la vôtre) : chacun devra redemander un code.</p></div>
+        </div>
+      </div>
+      <div class="panneau large">
+        <h3>Journal</h3>
+        <div class="rangee">
+          <div><label for="journal-filtre">Afficher</label>
+            <select id="journal-filtre">
+              <option value="">Tout</option><option value="erreurs">Erreurs et alertes</option>
+              <option value="connexions">Connexions</option><option value="adherents">Adhérents et réglages</option>
+              <option value="seances">Séances</option>
+            </select></div>
+          <div><label for="journal-texte">Rechercher</label><input id="journal-texte" type="search" placeholder="adresse, action…"></div>
+        </div>
+        <ul id="journal-liste" class="journal"></ul>
+      </div>
+    </section>
+
     <!-- Réglages -->
     <section id="ecran-reglages" class="ecran" hidden>
       <div class="barre-outils">
@@ -175,6 +246,74 @@
           <span id="notif-inscriptions-texte"></span>
         </label>
         <p id="notif-inscriptions-aide" class="aide-champ"></p>
+      </div>
+      <div id="bloc-reglages-admin" class="panneau large" hidden>
+        <h3>Réglages de l'application</h3>
+        <p class="aide-champ">Réservé aux administrateurs. S'applique à tous les utilisateurs concernés.</p>
+        <fieldset class="choix">
+          <legend>Sessions libres pour l'animatrice</legend>
+          <label class="option"><input type="radio" name="animatrice-libres" value="masquees">
+            <span><strong>Masquées</strong><br>Elle ne voit pas les sessions libres.</span></label>
+          <label class="option"><input type="radio" name="animatrice-libres" value="visibles">
+            <span><strong>Visibles</strong><br>Elle voit les sessions et peut s'y inscrire, sans la liste des participants.</span></label>
+          <label class="option"><input type="radio" name="animatrice-libres" value="participants">
+            <span><strong>Visibles avec les participants</strong><br>Elle voit aussi qui est inscrit.</span></label>
+        </fieldset>
+      </div>
+
+      <div id="bloc-reglages-cours" class="panneau large" hidden>
+        <h3>Cours réguliers et séances</h3>
+        <p class="aide-champ">Réservé aux administrateurs. Remplace les valeurs du fichier Config.gs, sans redéploiement.</p>
+        <form id="form-reglages-cours" class="formulaire" novalidate>
+          <label class="interrupteur"><input id="rg-cours-actifs" type="checkbox">
+            <span>Créer automatiquement les cours réguliers</span></label>
+          <div class="rangee">
+            <div><label for="rg-jour">Jour des cours</label>
+              <select id="rg-jour">
+                <option value="1">lundi</option><option value="2">mardi</option><option value="3">mercredi</option>
+                <option value="4">jeudi</option><option value="5">vendredi</option><option value="6">samedi</option>
+                <option value="7">dimanche</option>
+              </select></div>
+            <div><label for="rg-heure">Heure</label><input id="rg-heure" type="time"></div>
+          </div>
+          <div class="rangee">
+            <div><label for="rg-duree">Durée (min)</label><input id="rg-duree" type="number" min="15" max="600" step="15"></div>
+            <div><label for="rg-places">Places</label><input id="rg-places" type="number" min="1" max="100" placeholder="Auto"></div>
+          </div>
+          <p class="aide-champ">Places vides = nombre de membres du groupe.</p>
+          <label for="rg-lieu">Lieu des cours</label>
+          <input id="rg-lieu" type="text" maxlength="100">
+          <div class="rangee">
+            <div><label for="rg-reference" id="lbl-reference">Date où G1 a cours</label><input id="rg-reference" type="date"></div>
+            <div><label for="rg-alternance">Alternance</label>
+              <select id="rg-alternance">
+                <option value="semaine">Une semaine sur deux</option>
+                <option value="rotation">Rotation</option>
+              </select></div>
+          </div>
+          <p class="aide-champ">Clôture : les inscriptions ferment ce nombre d'heures avant le début. Rappel : envoyé ce nombre d'heures avant.</p>
+          <p class="aide-champ">« Une semaine sur deux » : un groupe dont le cours tombe pendant des vacances le perd.
+            « Rotation » : après une semaine sans cours, c'est le groupe privé de cours qui reprend.</p>
+          <div class="rangee">
+            <div><label for="rg-fermeture">Clôture (h avant)</label><input id="rg-fermeture" type="number" min="0" max="48"></div>
+            <div><label for="rg-rappel">Rappel (h avant)</label><input id="rg-rappel" type="number" min="1" max="72"></div>
+          </div>
+          <p class="sous-titre-bloc">Sessions libres : valeurs proposées</p>
+          <div class="rangee">
+            <div><label for="rg-places-libre">Places</label><input id="rg-places-libre" type="number" min="1" max="100"></div>
+            <div><label for="rg-duree-libre">Durée (min)</label><input id="rg-duree-libre" type="number" min="15" max="600" step="15"></div>
+          </div>
+          <label for="rg-lieu-libre">Lieu</label>
+          <input id="rg-lieu-libre" type="text" maxlength="100">
+          <label class="interrupteur"><input id="rg-appliquer" type="checkbox">
+            <span>Appliquer aussi aux cours déjà planifiés <span class="aide-champ">(heure, durée, lieu, places ;
+              un changement de jour annule les cours à l'ancien jour et les recrée au nouveau). Les participants sont prévenus.</span></span></label>
+          <button class="bouton principal" type="submit">Enregistrer les réglages</button>
+          <div class="liens-secondaires">
+            <button id="rg-apercu" class="lien" type="button">Voir le planning des 16 semaines</button>
+            <button id="rg-defaut" class="lien" type="button">Revenir aux valeurs par défaut</button>
+          </div>
+        </form>
       </div>
     </section>
 
@@ -209,6 +348,82 @@
       <div class="actions-dialogue">
         <button id="prog-annuler" class="bouton discret" type="button">Annuler</button>
         <button id="prog-enregistrer" class="bouton principal" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-adherent" class="dialogue" aria-labelledby="titre-adherent">
+    <form id="form-adherent" novalidate>
+      <h2 id="titre-adherent">Nouvel adhérent</h2>
+      <p id="adherent-info" class="sous-titre"></p>
+      <div class="rangee">
+        <div><label for="adh-prenom">Prénom</label><input id="adh-prenom" type="text" maxlength="60" autocomplete="off" required></div>
+        <div><label for="adh-nom">Nom</label><input id="adh-nom" type="text" maxlength="60" autocomplete="off"></div>
+      </div>
+      <label for="adh-email">Adresse e-mail</label>
+      <input id="adh-email" type="email" inputmode="email" maxlength="254" autocomplete="off" required>
+      <div class="rangee">
+        <div><label for="adh-role">Rôle</label><select id="adh-role"></select></div>
+        <div><label for="adh-groupe">Groupe de cours</label><select id="adh-groupe"></select></div>
+      </div>
+      <p id="adh-aide-groupe" class="aide-champ"></p>
+      <label class="interrupteur" id="ligne-actif">
+        <input id="adh-actif" type="checkbox" checked>
+        <span>Compte actif <span class="aide-champ">(décocher pour suspendre : accès coupé, retiré·e des séances à venir)</span></span>
+      </label>
+      <p id="adh-aide-creation" class="aide-champ">Un e-mail de bienvenue avec le lien de l'application est envoyé automatiquement.</p>
+      <div id="adh-actions-compte" class="actions-compte" hidden>
+        <button id="adh-bienvenue" class="lien" type="button">Renvoyer l'e-mail de bienvenue</button>
+        <button id="adh-donnees" class="lien" type="button">Voir ses données</button>
+        <button id="adh-tester-push" class="lien" type="button">Tester ses notifications</button>
+        <button id="adh-deconnecter" class="lien" type="button">Déconnecter ses appareils</button>
+        <button id="adh-supprimer" class="lien lien-danger" type="button">Supprimer l'adhérent</button>
+      </div>
+      <div class="actions-dialogue">
+        <button id="adh-annuler" class="bouton discret" type="button">Annuler</button>
+        <button id="adh-enregistrer" class="bouton principal" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-donnees" class="dialogue" aria-labelledby="titre-donnees">
+    <h2 id="titre-donnees">Données personnelles</h2>
+    <p id="donnees-qui" class="sous-titre"></p>
+    <pre id="donnees-texte" class="donnees"></pre>
+    <div class="actions-dialogue">
+      <button id="donnees-fermer" class="bouton discret" type="button">Fermer</button>
+      <button id="donnees-envoyer" class="bouton principal" type="button">Lui envoyer par e-mail</button>
+    </div>
+  </dialog>
+
+  <dialog id="dialogue-seance" class="dialogue" aria-labelledby="titre-seance">
+    <form id="form-seance" novalidate>
+      <h2 id="titre-seance">Modifier la séance</h2>
+      <p id="seance-info" class="sous-titre"></p>
+      <div id="seance-champs-libre">
+        <label for="seance-titre">Titre</label>
+        <input id="seance-titre" type="text" maxlength="80">
+      </div>
+      <div class="rangee">
+        <div><label for="seance-date">Date</label><input id="seance-date" type="date"></div>
+        <div><label for="seance-heure">Heure</label><input id="seance-heure" type="time"></div>
+      </div>
+      <p id="seance-aide-date" class="aide-champ" hidden>Un cours ne change pas de jour : annulez-le et créez un cours exceptionnel.</p>
+      <div class="rangee">
+        <div><label for="seance-duree">Durée (min)</label><input id="seance-duree" type="number" min="15" max="600" step="15"></div>
+        <div><label for="seance-places">Places</label><input id="seance-places" type="number" min="1" max="100"></div>
+      </div>
+      <label for="seance-lieu">Lieu</label>
+      <input id="seance-lieu" type="text" maxlength="100">
+      <div id="seance-bloc-description">
+        <label for="seance-description">Description</label>
+        <textarea id="seance-description" rows="3" maxlength="800"></textarea>
+      </div>
+      <p class="aide-champ">En cas de changement de date, d'horaire, de lieu ou de titre, les participants sont prévenus
+        (invitation mise à jour et notification).</p>
+      <div class="actions-dialogue">
+        <button id="seance-annuler" class="bouton discret" type="button">Annuler</button>
+        <button id="seance-enregistrer" class="bouton principal" type="submit">Enregistrer</button>
       </div>
     </form>
   </dialog>
