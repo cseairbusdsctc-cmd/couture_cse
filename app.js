@@ -245,6 +245,10 @@
     if (s.encadrant) {
       statut = `<span class="statut inscrit">${s.inscrit ? 'Vous encadrez ce cours' : 'Vous avez décliné ce cours'}</span>`;
       if (!s.inscrit && s.ouvert) action = bouton('inscrire', 'Je serai là finalement', 'secondaire');
+    } else if (s.inscrit && cours && s.aConfirmer) {
+      statut = '<span class="statut a-confirmer">Présence à confirmer</span>';
+      action = bouton('confirmerPresence', 'Je confirme ma présence', 'principal') +
+        bouton('desinscrire', 'Signaler mon absence', 'secondaire', ' data-cours="1"');
     } else if (s.inscrit && cours && s.monGroupe) {
       statut = '<span class="statut inscrit">Vous êtes attendu·e</span>';
       action = bouton('desinscrire', 'Signaler mon absence', 'secondaire', ' data-cours="1"');
@@ -336,6 +340,7 @@
 
   const LIBELLES_EN_COURS = {
     inscrire: 'Inscription…',
+    confirmerPresence: 'Confirmation…',
     desinscrire: 'Désinscription…',
     rejoindreAttente: 'Enregistrement…',
     quitterAttente: 'Enregistrement…'
@@ -725,7 +730,8 @@
   const CHAMPS_RG = {
     coursActifs: 'rg-cours-actifs', jour: 'rg-jour', heureDebut: 'rg-heure', dureeMinutes: 'rg-duree',
     places: 'rg-places', lieu: 'rg-lieu', dateReference: 'rg-reference', alternance: 'rg-alternance',
-    fermetureHeures: 'rg-fermeture', rappelHeures: 'rg-rappel', placesLibre: 'rg-places-libre',
+    fermetureHeures: 'rg-fermeture', rappelHeures: 'rg-rappel', relanceActive: 'rg-relance-active',
+    relanceHeures: 'rg-relance', placesLibre: 'rg-places-libre',
     dureeLibre: 'rg-duree-libre', lieuLibre: 'rg-lieu-libre'
   };
   let reglagesCharges = {};
@@ -1067,6 +1073,79 @@
         ? `<a href="${echapper(r.formulaire)}" target="_blank" rel="noopener">Ouvrir le formulaire</a>` : 'non créé')
     ].join('');
     chargerJournal();
+    chargerRelances();
+  }
+
+  // ---------- Relance des présences à confirmer ----------
+  const fmtCoursRelance = fmt({ weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  const LIBELLES_CANAL = { auto: 'notification, sinon e-mail', push: 'notification', email: 'e-mail' };
+
+  async function chargerRelances() {
+    const zone = $('relance-liste');
+    const r = await api('outilsNonConfirmes');
+    if (!r.ok) { zone.innerHTML = ''; return; }
+    $('relance-auto-etat').textContent = r.relanceAuto.active
+      ? `Relance automatique : activée, ${r.relanceAuto.heures} h avant chaque cours (Réglages). Ici, vous pouvez relancer à tout moment.`
+      : 'Relance automatique : désactivée (Réglages → Cours réguliers et séances). Vous pouvez relancer ici à la main.';
+    if (!r.cours.length) { zone.innerHTML = '<p class="vide-liste">Aucun cours dans les 3 prochaines semaines.</p>'; return; }
+    zone.innerHTML = r.cours.map((c) => {
+      const id = echapper(c.id);
+      const entete = `<div class="relance-entete"><b>${echapper(majuscule(fmtCoursRelance.format(new Date(c.debut))))}</b>` +
+        `${c.groupe ? ' · ' + echapper(c.groupe) : ''}<br><span class="aide-champ">${echapper(c.titre)} — ` +
+        `${c.confirmes} confirmé(s) sur ${c.invites}</span></div>`;
+      const historique = [
+        c.relanceAuto ? 'relance automatique envoyée' : '',
+        c.derniereRelance ? `dernière relance manuelle : ${fmtJournal.format(new Date(c.derniereRelance.date))}, ` +
+          `${c.derniereRelance.nb} personne(s), ${LIBELLES_CANAL[c.derniereRelance.canal] || ''}` : ''
+      ].filter(Boolean).join(' · ');
+      if (!c.nonConfirmes.length) {
+        return `<div class="relance-cours">${entete}<p class="relance-ok">✅ Tout le monde a confirmé.</p></div>`;
+      }
+      const personnes = c.nonConfirmes.map((p) =>
+        `<label class="relance-personne"><input type="checkbox" checked data-relance-email="${echapper(p.email)}">` +
+        `<span>${echapper(p.nom)}</span><span class="relance-tel" title="${p.telephone ? 'Notifications activées' : 'Pas de notifications : e-mail seulement'}">` +
+        `${p.telephone ? '📱' : '✉️'}</span></label>`).join('');
+      return `<div class="relance-cours" data-relance-cours="${id}">${entete}
+        <p class="relance-compte">${c.nonConfirmes.length} sans réponse :</p>
+        <div class="relance-personnes">${personnes}</div>
+        <div class="relance-envoi">
+          <select data-relance-canal aria-label="Moyen de relance">
+            <option value="auto">Notification, sinon e-mail</option>
+            <option value="push">Notification seulement</option>
+            <option value="email">E-mail seulement</option>
+          </select>
+          <button class="bouton principal" type="button" data-relancer="${id}">Relancer</button>
+        </div>
+        ${historique ? `<p class="aide-champ">${echapper(historique)}</p>` : ''}</div>`;
+    }).join('');
+    zone.querySelectorAll('[data-relancer]').forEach((b) => b.addEventListener('click', relancer));
+    zone.querySelectorAll('[data-relance-email]').forEach((c) => c.addEventListener('change', majBoutonRelance));
+    zone.querySelectorAll('[data-relance-cours]').forEach((bloc) => majBoutonRelance({ target: bloc }));
+    $('relance-auto-etat').dataset.quota = r.quotaEmails;
+  }
+
+  function majuscule(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+
+  function majBoutonRelance(e) {
+    const bloc = e.target.closest('[data-relance-cours]');
+    const n = bloc.querySelectorAll('[data-relance-email]:checked').length;
+    const b = bloc.querySelector('[data-relancer]');
+    b.textContent = n ? `Relancer (${n})` : 'Relancer';
+    b.disabled = n === 0;
+  }
+
+  async function relancer(e) {
+    const bloc = e.target.closest('[data-relance-cours]');
+    const emails = [...bloc.querySelectorAll('[data-relance-email]:checked')].map((c) => c.dataset.relanceEmail);
+    const canal = bloc.querySelector('[data-relance-canal]').value;
+    if (!emails.length) return;
+    if (!window.confirm(`Envoyer la relance « Confirmez votre présence » à ${emails.length} personne(s), par ${LIBELLES_CANAL[canal]} ?`)) return;
+    occupe(e.target, true, 'Envoi…');
+    const r = await api('outilsRelancer', { eventId: e.target.dataset.relancer, canal, emails });
+    occupe(e.target, false);
+    if (r.code === 'AUTH') return;
+    message(r.ok ? r.message : r.erreur, !r.ok);
+    if (r.ok) chargerRelances();
   }
 
   async function lancerDiagnostic(e) {
