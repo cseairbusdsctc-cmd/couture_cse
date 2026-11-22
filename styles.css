@@ -289,6 +289,8 @@ textarea {
 }
 
 .statut.inscrit { color: var(--indigo); }
+.statut.a-confirmer { color: #8A5A00; }
+.statut.a-confirmer::before { content: "● "; color: var(--fil, #D9A21B); }
 .statut.complet, .statut.ferme { color: var(--gris); }
 
 .session .actions {
@@ -684,3 +686,18 @@ input:disabled { color: var(--gris); background: var(--chambray); }
   .onglets { padding: 0 10px; }
   .onglets button { padding: 10px 7px 12px; font-size: 0.88rem; }
 }
+
+/* ---------- Outils : présences à confirmer ---------- */
+.relance-liste { display: grid; gap: 12px; }
+.relance-cours { border: 2px solid var(--trait); border-radius: 10px; padding: 12px 14px; background: var(--toile); }
+.relance-entete { margin-bottom: 6px; line-height: 1.35; }
+.panneau p.relance-ok { margin: 6px 0 0; color: var(--encre); }
+.panneau p.relance-compte { margin: 6px 0 4px; color: var(--encre); font-weight: bold; }
+.relance-personnes { display: grid; gap: 2px; margin-bottom: 10px; }
+.relance-personne { font-weight: normal; display: flex; align-items: center; gap: 10px; padding: 6px 2px; cursor: pointer; }
+.relance-personne input { width: 20px; height: 20px; margin: 0; flex: none; }
+.relance-personne span:first-of-type { flex: 1; }
+.relance-tel { font-size: 1rem; }
+.relance-envoi { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.relance-envoi select { flex: 1 1 180px; width: auto; margin: 0; }
+.relance-envoi .bouton { flex: 0 0 auto; width: auto; margin: 0; }
