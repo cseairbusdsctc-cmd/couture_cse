@@ -66,12 +66,17 @@
     <!-- Sessions -->
     <section id="ecran-sessions" class="ecran" hidden>
       <div class="barre-outils">
-        <h2>Séances à venir</h2>
+        <h2>Séances</h2>
         <button id="btn-actualiser" class="bouton discret" type="button">Actualiser</button>
+      </div>
+      <div class="segments" role="tablist" aria-label="Séances">
+        <button type="button" role="tab" data-vue="avenir" aria-selected="true">À venir</button>
+        <button type="button" role="tab" data-vue="precedentes" aria-selected="false">Sessions précédentes</button>
       </div>
       <div id="aide-installation" class="aide-installation" hidden></div>
       <div id="zone-notifications" class="aide-installation" hidden></div>
       <div id="liste-sessions" aria-live="polite"></div>
+      <div id="liste-precedentes" aria-live="polite" hidden></div>
     </section>
 
     <!-- Gestion (animatrices, bureau, admin) -->
@@ -115,12 +120,12 @@
             </div>
             <div class="rangee">
               <div><label for="cours-places">Places</label><input id="cours-places" type="number" min="1" max="100" placeholder="Auto"></div>
-              <div><label for="cours-lieu">Lieu</label><input id="cours-lieu" type="text" maxlength="100"></div>
+              <div><label for="cours-lieu">Lieu</label><input id="cours-lieu" type="text" maxlength="100" placeholder="CY2 - S116"></div>
             </div>
             <label for="cours-activite">Activité</label>
             <input id="cours-activite" type="text" maxlength="80" placeholder="Ex. : trousse zippée doublée">
-            <label for="cours-description">Description</label>
-            <textarea id="cours-description" rows="3" maxlength="800"></textarea>
+            <label for="cours-intitule">Intitulé</label>
+            <textarea id="cours-intitule" rows="2" maxlength="800" placeholder="Affiché en gras sur la carte du cours"></textarea>
             <label for="cours-fournitures">Fournitures à apporter</label>
             <p class="aide-champ">Une par ligne.</p>
             <textarea id="cours-fournitures" rows="4"></textarea>
@@ -146,9 +151,12 @@
             <label for="session-titre">Titre</label>
             <input id="session-titre" type="text" maxlength="80" placeholder="Session libre">
             <label for="session-lieu">Lieu</label>
-            <input id="session-lieu" type="text" maxlength="100">
+            <input id="session-lieu" type="text" maxlength="100" placeholder="CY2 - S116">
             <label for="session-description">Description</label>
             <textarea id="session-description" rows="3" maxlength="800"></textarea>
+            <label class="interrupteur"><input id="session-prevenir" type="checkbox" checked>
+              <span>Prévenir tous les adhérents et membres du bureau <span class="aide-champ">(notification ou e-mail,
+                selon le choix de chacun)</span></span></label>
             <button class="bouton principal" type="submit">Créer la session</button>
           </form>
         </details>
@@ -199,13 +207,6 @@
         <pre id="diag-resultat" class="donnees" hidden></pre>
       </div>
       <div class="panneau large">
-        <h3>Présences à confirmer</h3>
-        <p class="aide-champ">Membres invités d'office à un cours (3 prochaines semaines) qui n'ont ni répondu « Oui »
-          à l'invitation Google ni touché « Je confirme ma présence ». Cochez les personnes à relancer, choisissez le moyen, envoyez.</p>
-        <p id="relance-auto-etat" class="aide-champ"></p>
-        <div id="relance-liste" class="relance-liste"></div>
-      </div>
-      <div class="panneau large">
         <h3>Actions</h3>
         <div class="liste-actions">
           <div><button class="bouton discret" type="button" data-outil="planifier">Planifier maintenant</button>
@@ -245,6 +246,26 @@
       <div class="panneau large">
         <h3>Notifications sur ce téléphone</h3>
         <div id="reglages-push"></div>
+      </div>
+      <div class="panneau large">
+        <h3>Mes préférences</h3>
+        <label class="interrupteur"><input id="pref-invitations" type="checkbox">
+          <span>Recevoir les invitations dans mon agenda Google <span class="aide-champ">(cours et sessions libres où je suis
+            inscrit·e). Décoché : vous restez inscrit·e, mais rien n'arrive dans votre agenda.</span></span></label>
+        <fieldset class="choix">
+          <legend>Comment être prévenu·e (rappels, places libres, changements, nouvelles sessions)</legend>
+          <label class="option"><input type="radio" name="pref-messages" value="notification">
+            <span><strong>Notification sur le téléphone</strong><br>Par e-mail si la notification n'arrive pas.</span></label>
+          <label class="option"><input type="radio" name="pref-messages" value="email">
+            <span><strong>E-mail</strong><br>Tous les messages arrivent dans votre boîte e-mail.</span></label>
+          <label class="option"><input type="radio" name="pref-messages" value="aucun">
+            <span><strong>Aucun message</strong><br>Vous consultez l'application vous-même.</span></label>
+        </fieldset>
+      </div>
+      <div class="panneau large">
+        <h3>Installer l'application</h3>
+        <p class="aide-champ">Pour la retrouver avec vos applications (et recevoir les notifications sur iPhone).</p>
+        <div id="reglages-installation"></div>
       </div>
       <div id="bloc-notif-inscriptions" class="panneau large" hidden>
         <h3>Inscriptions et désinscriptions</h3>
@@ -305,15 +326,6 @@
             <div><label for="rg-fermeture">Clôture (h avant)</label><input id="rg-fermeture" type="number" min="0" max="48"></div>
             <div><label for="rg-rappel">Rappel (h avant)</label><input id="rg-rappel" type="number" min="1" max="72"></div>
           </div>
-          <label class="interrupteur"><input id="rg-relance-active" type="checkbox">
-            <span>Relancer les membres qui n'ont pas confirmé leur présence à un cours</span></label>
-          <div class="rangee">
-            <div><label for="rg-relance">Relance (h avant)</label><input id="rg-relance" type="number" min="1" max="72"></div>
-            <div></div>
-          </div>
-          <p class="aide-champ">Concerne les membres invités d'office qui n'ont ni répondu « Oui » à l'invitation
-            ni touché « Je confirme ma présence ». Avec le même délai que le rappel, ils reçoivent la relance à la place du rappel.
-            Relance à la main, à tout moment : onglet Outils.</p>
           <p class="sous-titre-bloc">Sessions libres : valeurs proposées</p>
           <div class="rangee">
             <div><label for="rg-places-libre">Places</label><input id="rg-places-libre" type="number" min="1" max="100"></div>
@@ -349,14 +361,19 @@
       <input id="prog-activite" type="text" maxlength="80" autocomplete="off"
              placeholder="Ex. : trousse zippée doublée">
 
-      <label for="prog-description">Description</label>
-      <textarea id="prog-description" rows="3" maxlength="800"
-                placeholder="Ce que l'on va apprendre ou réaliser"></textarea>
+      <label for="prog-intitule">Intitulé</label>
+      <textarea id="prog-intitule" rows="2" maxlength="800"
+                placeholder="Affiché en gras : ce que l'on va apprendre ou réaliser"></textarea>
 
       <label for="prog-fournitures">Fournitures à apporter</label>
       <p class="aide-champ">Une par ligne.</p>
       <textarea id="prog-fournitures" rows="6"
                 placeholder="Tissu coton 50 cm&#10;Fermeture à glissière 20 cm&#10;Fil assorti"></textarea>
+
+      <label for="prog-lien">Lien Google Drive du cours (facultatif)</label>
+      <input id="prog-lien" type="url" inputmode="url" maxlength="900" autocomplete="off"
+             placeholder="https://drive.google.com/drive/folders/…">
+      <p class="aide-champ">Dossier partagé (photos, déroulé du cours) : visible par tous dans « Sessions précédentes ».</p>
 
       <p class="aide-champ">À la première publication, les participants sont prévenus.
         Laissez tout vide pour effacer le programme.</p>
@@ -383,6 +400,14 @@
         <div><label for="adh-groupe">Groupe de cours</label><select id="adh-groupe"></select></div>
       </div>
       <p id="adh-aide-groupe" class="aide-champ"></p>
+      <label class="interrupteur"><input id="adh-invitations" type="checkbox" checked>
+        <span>Reçoit les invitations Google Agenda <span class="aide-champ">(décoché : inscrit·e sans invitation)</span></span></label>
+      <label for="adh-messages">Messages de l'application</label>
+      <select id="adh-messages">
+        <option value="notification">Notification (e-mail si elle n'arrive pas)</option>
+        <option value="email">E-mail seulement</option>
+        <option value="aucun">Aucun message</option>
+      </select>
       <label class="interrupteur" id="ligne-actif">
         <input id="adh-actif" type="checkbox" checked>
         <span>Compte actif <span class="aide-champ">(décocher pour suspendre : accès coupé, retiré·e des séances à venir)</span></span>
@@ -436,12 +461,53 @@
         <textarea id="seance-description" rows="3" maxlength="800"></textarea>
       </div>
       <p class="aide-champ">En cas de changement de date, d'horaire, de lieu ou de titre, les participants sont prévenus
-        (invitation mise à jour et notification).</p>
+        (invitation mise à jour, et notification ou e-mail selon leur choix).</p>
       <div class="actions-dialogue">
         <button id="seance-annuler" class="bouton discret" type="button">Annuler</button>
         <button id="seance-enregistrer" class="bouton principal" type="submit">Enregistrer</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="dialogue-message" class="dialogue" aria-labelledby="titre-message">
+    <form id="form-message" novalidate>
+      <h2 id="titre-message">Écrire aux participants</h2>
+      <p id="message-seance" class="sous-titre"></p>
+      <label for="message-titre">Titre (facultatif)</label>
+      <input id="message-titre" type="text" maxlength="60" placeholder="Ex. : changement de salle">
+      <label for="message-texte">Message</label>
+      <textarea id="message-texte" rows="5" maxlength="500" required></textarea>
+      <p class="aide-champ">Chaque inscrit le reçoit selon son choix : notification sur le téléphone (e-mail si elle
+        n'arrive pas), e-mail, ou rien s'il a choisi « Aucun message ».</p>
+      <div class="actions-dialogue">
+        <button id="message-annuler" class="bouton discret" type="button">Annuler</button>
+        <button id="message-envoyer" class="bouton principal" type="submit">Envoyer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-lien" class="dialogue" aria-labelledby="titre-lien">
+    <form id="form-lien" novalidate>
+      <h2 id="titre-lien">Lien Google Drive du cours</h2>
+      <p id="lien-cours" class="sous-titre"></p>
+      <label for="lien-url">Adresse du dossier partagé</label>
+      <input id="lien-url" type="url" inputmode="url" maxlength="900" autocomplete="off"
+             placeholder="https://drive.google.com/drive/folders/…">
+      <p class="aide-champ">Dans Google Drive : clic droit sur le dossier → Partager → « Tous les utilisateurs disposant du lien »
+        (lecteur) → Copier le lien. Laissez vide pour retirer le lien.</p>
+      <div class="actions-dialogue">
+        <button id="lien-annuler" class="bouton discret" type="button">Annuler</button>
+        <button id="lien-enregistrer" class="bouton principal" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-installation" class="dialogue" aria-labelledby="titre-installation">
+    <h2 id="titre-installation">Installer l'application</h2>
+    <div id="guide-installation"></div>
+    <div class="actions-dialogue">
+      <button id="installation-fermer" class="bouton principal" type="button">Fermer</button>
+    </div>
   </dialog>
 
   <dialog id="dialogue-annulation" class="dialogue" aria-labelledby="titre-annulation">
@@ -450,7 +516,7 @@
       <p id="annulation-date" class="sous-titre"></p>
       <label for="annulation-motif">Motif (envoyé aux participants)</label>
       <input id="annulation-motif" type="text" maxlength="100" placeholder="Ex. : salle indisponible">
-      <p class="aide-champ">Les participants reçoivent l'annulation dans leur agenda et une notification.</p>
+      <p class="aide-champ">Les participants reçoivent l'annulation dans leur agenda, et une notification ou un e-mail selon leur choix.</p>
       <div class="actions-dialogue">
         <button id="annulation-retour" class="bouton discret" type="button">Retour</button>
         <button id="annulation-confirmer" class="bouton danger" type="submit">Annuler la séance</button>
