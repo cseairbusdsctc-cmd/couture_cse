@@ -133,7 +133,7 @@
     document.querySelectorAll('#onglets [data-onglet]').forEach((b) => {
       if (b.dataset.onglet === nom) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
-    if (nom === 'sessions') chargerSessions();
+    if (nom === 'sessions') afficherVue(vueSeances);
     if (nom === 'gestion') chargerGestion();
     if (nom === 'reglages') afficherReglages();
     if (nom === 'adherents') chargerAdherents();
@@ -241,30 +241,27 @@
     const cours = s.type === 'cours';
     const bouton = (act, libelle, classe, extra = '') =>
       `<button class="bouton ${classe}" data-action="${act}" data-id="${id}"${extra}>${libelle}</button>`;
+    const annulerPresence = bouton('desinscrire', 'Annuler ma présence', 'secondaire', cours ? ' data-cours="1"' : '');
 
     if (s.encadrant) {
       statut = `<span class="statut inscrit">${s.inscrit ? 'Vous encadrez ce cours' : 'Vous avez décliné ce cours'}</span>`;
       if (!s.inscrit && s.ouvert) action = bouton('inscrire', 'Je serai là finalement', 'secondaire');
-    } else if (s.inscrit && cours && s.aConfirmer) {
-      statut = '<span class="statut a-confirmer">Présence à confirmer</span>';
-      action = bouton('confirmerPresence', 'Je confirme ma présence', 'principal') +
-        bouton('desinscrire', 'Signaler mon absence', 'secondaire', ' data-cours="1"');
     } else if (s.inscrit && cours && s.monGroupe) {
       statut = '<span class="statut inscrit">Vous êtes attendu·e</span>';
-      action = bouton('desinscrire', 'Signaler mon absence', 'secondaire', ' data-cours="1"');
+      if (s.ouvert) action = annulerPresence;
     } else if (s.inscrit) {
       statut = '<span class="statut inscrit">Vous êtes inscrit·e</span>';
-      action = bouton('desinscrire', 'Me désinscrire', 'secondaire');
+      if (s.ouvert) action = annulerPresence;
     } else if (!s.ouvert) {
-      statut = `<span class="statut ferme">${s.absent ? 'Absence signalée' : 'Inscriptions fermées'}</span>`;
+      statut = `<span class="statut ferme">${s.absent ? 'Présence annulée' : 'Inscriptions fermées'}</span>`;
     } else if (s.complet && s.enAttente) {
       statut = '<span class="statut complet">Complet, vous serez prévenu·e si une place se libère</span>';
       action = bouton('quitterAttente', 'Ne plus être prévenu·e', 'secondaire');
     } else if (s.complet) {
-      statut = `<span class="statut complet">${s.absent ? 'Absence signalée · complet' : 'Complet'}</span>`;
+      statut = `<span class="statut complet">${s.absent ? 'Présence annulée · complet' : 'Complet'}</span>`;
       action = bouton('rejoindreAttente', 'Me prévenir si une place se libère', 'secondaire');
     } else if (s.absent) {
-      statut = '<span class="statut ferme">Absence signalée</span>';
+      statut = '<span class="statut ferme">Présence annulée</span>';
       action = bouton('inscrire', 'Finalement, je viens', 'principal');
     } else if (cours && !s.monGroupe) {
       statut = `<span class="statut">${(etat.utilisateur || {}).groupe ? 'Place disponible pour les autres groupes' : 'Place disponible'}</span>`;
@@ -273,20 +270,22 @@
       action = bouton('inscrire', 'M\'inscrire', 'principal');
     }
 
-    const nomGroupe = s.groupe === 'Tous' ? ' · tous les groupes' : (s.groupe ? ' · groupe ' + echapper(s.groupe) : '');
     const badge = cours
-      ? `<span class="badge cours">Cours${nomGroupe}${s.monGroupe && !s.encadrant && s.groupe !== 'Tous' ? ' · votre groupe' : ''}</span>`
+      ? `<span class="badge cours">${s.groupe === 'Tous' ? 'Tous les groupes' : (s.groupe ? 'Groupe ' + echapper(s.groupe) : 'Cours')}</span>`
       : '<span class="badge">Session libre</span>';
     const encadrement = cours && s.encadrants && s.encadrants.length && !s.encadrant
       ? `<p class="encadrement">Avec ${s.encadrants.map(echapper).join(', ')}</p>` : '';
-
-    const fournitures = Array.isArray(s.fournitures) && s.fournitures.length
-      ? `<div class="fournitures"><p class="fournitures-titre">À apporter</p><ul>${
-          s.fournitures.map((f) => `<li>${echapper(f)}</li>`).join('')}</ul></div>`
+    const bureau = Array.isArray(s.bureauPresents)
+      ? `<p class="bureau-presents">${s.bureauPresents.length
+          ? `Membre${s.bureauPresents.length > 1 ? 's' : ''} du bureau présent${s.bureauPresents.length > 1 ? 's' : ''} : ${s.bureauPresents.map(echapper).join(', ')}`
+          : 'Aucun membre du bureau inscrit pour l\'instant'}</p>`
       : '';
+
+    const fournitures = blocFournitures(s.fournitures);
+    const lienDrive = s.lienDrive ? lienDossier(s.lienDrive) : '';
     const editionProgramme = s.programme
       ? `<button class="lien" type="button" data-action="programme" data-id="${id}">${
-          s.programme.activite || s.programme.description || s.programme.fournitures
+          s.programme.activite || s.programme.intitule || s.programme.fournitures
             ? 'Modifier le programme' : 'Saisir le programme'}</button>`
       : '';
     const annulation = s.peutAnnuler
@@ -297,7 +296,10 @@
       ? `<button class="lien" type="button" data-action="modifier" data-id="${id}">${
           cours ? 'Modifier ce cours' : 'Modifier cette session'}</button>`
       : '';
-    const liens = [editionProgramme, modification, annulation].filter(Boolean).join('');
+    const ecrire = s.peutEcrire
+      ? `<button class="lien" type="button" data-action="ecrire" data-id="${id}">Écrire aux participants</button>`
+      : '';
+    const liens = [editionProgramme, modification, ecrire, annulation].filter(Boolean).join('');
     const actions = action || liens
       ? `<div class="actions">${action}${liens ? `<div class="edition">${liens}</div>` : ''}</div>`
       : '';
@@ -305,16 +307,12 @@
     let blocInscrits = '';
     if (Array.isArray(s.inscrits)) {
       const liste = s.inscrits.length
-        ? '<ul>' + s.inscrits.map((p) => {
-            const reponse = p.statut === 'accepted' ? '' :
-              p.statut === 'tentative' ? ' <span class="attente-reponse">(peut-être)</span>' :
-              ' <span class="attente-reponse">(n\'a pas encore répondu)</span>';
-            return `<li>${echapper(p.nom)}${reponse}</li>`;
-          }).join('') + '</ul>'
+        ? '<ul>' + s.inscrits.map((p) =>
+            `<li>${echapper(p.nom)}${p.bureau ? ' <span class="badge-bureau">bureau</span>' : ''}</li>`).join('') + '</ul>'
         : '<p>Personne pour l\'instant.</p>';
       const absences = Array.isArray(s.absents) && s.absents.length
-        ? `<p class="absences">Absent·es : ${s.absents.map(echapper).join(', ')}</p>` : '';
-      blocInscrits = `<details class="inscrits"><summary>${s.nbInscrits} participant${s.nbInscrits > 1 ? 's' : ''} sur ${s.places} places</summary>${liste}${absences}</details>`;
+        ? `<p class="absences">Présence annulée : ${s.absents.map(echapper).join(', ')}</p>` : '';
+      blocInscrits = `<details class="inscrits"${cours ? '' : ' open'}><summary>${s.nbInscrits} participant${s.nbInscrits > 1 ? 's' : ''} sur ${s.places} places</summary>${liste}${absences}</details>`;
     }
 
     return `
@@ -329,8 +327,11 @@
           <h3>${echapper(s.titre)}</h3>
           <p class="infos">${heure(debut)} à ${heure(fin)}${s.lieu ? '<br>' + echapper(s.lieu) : ''}</p>
           ${encadrement}
+          ${s.intitule ? `<p class="intitule"><strong>${echapper(s.intitule)}</strong></p>` : ''}
           ${s.description ? `<p class="description">${echapper(s.description)}</p>` : ''}
           ${fournitures}
+          ${lienDrive}
+          ${bureau}
           ${statut}
         </div>
         ${actions}
@@ -338,10 +339,22 @@
       </article>`;
   }
 
+  function blocFournitures(liste) {
+    return Array.isArray(liste) && liste.length
+      ? `<div class="fournitures"><p class="fournitures-titre">À apporter</p><ul>${
+          liste.map((f) => `<li>${echapper(f)}</li>`).join('')}</ul></div>`
+      : '';
+  }
+
+  function lienDossier(url) {
+    return /^https:\/\//i.test(url)
+      ? `<p class="lien-dossier"><a href="${echapper(url)}" target="_blank" rel="noopener noreferrer">📁 Photos et déroulé du cours (Google Drive)</a></p>`
+      : '';
+  }
+
   const LIBELLES_EN_COURS = {
     inscrire: 'Inscription…',
-    confirmerPresence: 'Confirmation…',
-    desinscrire: 'Désinscription…',
+    desinscrire: 'Annulation…',
     rejoindreAttente: 'Enregistrement…',
     quitterAttente: 'Enregistrement…'
   };
@@ -362,10 +375,14 @@
       ouvrirModificationSeance(bouton.dataset.id);
       return;
     }
+    if (action === 'ecrire') {
+      ouvrirMessage(bouton.dataset.id);
+      return;
+    }
     if (action === 'desinscrire') {
       const question = bouton.dataset.cours
-        ? 'Signaler votre absence à ce cours ? Votre place pourra être prise par un adhérent de l\'autre groupe.'
-        : 'Vous désinscrire de cette session ? Votre place sera proposée à d\'autres adhérents.';
+        ? 'Annuler votre présence à ce cours ? Votre place pourra être prise par un adhérent de l\'autre groupe.'
+        : 'Annuler votre présence à cette session ? Votre place sera proposée aux autres adhérents.';
       if (!window.confirm(question)) return;
     }
     occupe(bouton, true, LIBELLES_EN_COURS[action]);
@@ -395,7 +412,7 @@
   // Minimisation : on n'enregistre que le type d'appareil, pas l'identification complète du navigateur.
   function typeAppareil() {
     const ua = navigator.userAgent;
-    if (/iphone|ipad|ipod/i.test(ua)) return 'iPhone / iPad';
+    if (/iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iPhone / iPad';
     if (/android/i.test(ua)) return 'Android';
     return 'Autre';
   }
@@ -461,7 +478,7 @@
   function htmlEtatPush() {
     if (!pushPossible()) {
       return { visible: false, html: 'Les notifications ne sont pas disponibles sur ce navigateur' +
-        (/iphone|ipad|ipod/i.test(navigator.userAgent) ? ' (sur iPhone : installez d\'abord l\'application sur l\'écran d\'accueil).' : '.') +
+        (plateforme().os === 'ios' ? ' (sur iPhone : installez d\'abord l\'application sur l\'écran d\'accueil, iOS 16.4 ou plus récent).' : '.') +
         ' Vous recevez les alertes par e-mail.' };
     }
     if (Notification.permission === 'denied') {
@@ -516,8 +533,9 @@
     $('programme-date').textContent =
       fmtComplet.format(new Date(s.debut)) + (s.groupe ? ` · groupe ${s.groupe}` : '');
     $('prog-activite').value = s.programme.activite || '';
-    $('prog-description').value = s.programme.description || '';
+    $('prog-intitule').value = s.programme.intitule || '';
     $('prog-fournitures').value = s.programme.fournitures || '';
+    $('prog-lien').value = s.programme.lienDrive || '';
     const d = $('dialogue-programme');
     if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
     $('prog-activite').focus();
@@ -539,9 +557,10 @@
       eventId: programmeEnCours,
       programme: {
         activite: $('prog-activite').value,
-        description: $('prog-description').value,
+        description: $('prog-intitule').value,
         fournitures: $('prog-fournitures').value
-      }
+      },
+      lienDrive: $('prog-lien').value
     });
     occupe(bouton, false);
     if (r.code === 'AUTH') { fermerProgramme(); return; }
@@ -617,18 +636,18 @@
       date: $('cours-date').value, heure: $('cours-heure').value, duree: $('cours-duree').value,
       groupe: $('cours-groupe').value, places: $('cours-places').value, lieu: $('cours-lieu').value,
       programme: {
-        activite: $('cours-activite').value, description: $('cours-description').value,
+        activite: $('cours-activite').value, description: $('cours-intitule').value,
         fournitures: $('cours-fournitures').value
       }
     }, () => {
-      ['cours-date', 'cours-places', 'cours-activite', 'cours-description', 'cours-fournitures']
+      ['cours-date', 'cours-places', 'cours-activite', 'cours-intitule', 'cours-fournitures']
         .forEach((id) => { $(id).value = ''; });
     }));
 
     $('form-session').addEventListener('submit', (e) => soumettre(e, 'creerSession', 'session', {
       date: $('session-date').value, heure: $('session-heure').value, duree: $('session-duree').value,
       places: $('session-places').value, titre: $('session-titre').value, lieu: $('session-lieu').value,
-      description: $('session-description').value
+      description: $('session-description').value, prevenir: $('session-prevenir').checked
     }, () => {
       ['session-date', 'session-titre', 'session-description'].forEach((id) => { $(id).value = ''; });
     }));
@@ -699,6 +718,8 @@
     $('reglages-compte').textContent =
       `${[u.prenom, u.nom].filter(Boolean).join(' ')} · ${ROLES[u.role] || u.role || ''} · ${groupe}\n${u.email || ''}`;
     afficherZoneNotifications();
+    afficherPreferences();
+    afficherGuideInstallation($('reglages-installation'));
     chargerReglagesAdmin();
 
     const bloc = $('bloc-notif-inscriptions');
@@ -713,6 +734,24 @@
       ? 'Toujours activé pour votre rôle' + (pushActif ? '.' : ' : sans notification sur ce téléphone, vous les recevez par e-mail.')
       : (pushActif ? 'Les alertes arrivent en notification sur ce téléphone.'
                    : 'Activez les notifications sur ce téléphone pour les recevoir.');
+  }
+
+  function afficherPreferences() {
+    const pref = (etat.utilisateur || {}).preferences || { invitations: true, messages: 'notification' };
+    $('pref-invitations').checked = pref.invitations !== false;
+    document.querySelectorAll('input[name=pref-messages]').forEach((b) => { b.checked = b.value === pref.messages; });
+  }
+
+  async function changerPreference(donnees, champs) {
+    champs.forEach((c) => { c.disabled = true; });
+    const r = await api('reglages', { reglages: donnees });
+    champs.forEach((c) => { c.disabled = false; });
+    if (r.code === 'AUTH') return;
+    if (!r.ok) { message(r.erreur, true); afficherPreferences(); return; }
+    etat.utilisateur = r.utilisateur;
+    enregistrerSession();
+    message(r.message);
+    afficherPreferences();
   }
 
   async function chargerReglagesAdmin() {
@@ -730,8 +769,7 @@
   const CHAMPS_RG = {
     coursActifs: 'rg-cours-actifs', jour: 'rg-jour', heureDebut: 'rg-heure', dureeMinutes: 'rg-duree',
     places: 'rg-places', lieu: 'rg-lieu', dateReference: 'rg-reference', alternance: 'rg-alternance',
-    fermetureHeures: 'rg-fermeture', rappelHeures: 'rg-rappel', relanceActive: 'rg-relance-active',
-    relanceHeures: 'rg-relance', placesLibre: 'rg-places-libre',
+    fermetureHeures: 'rg-fermeture', rappelHeures: 'rg-rappel', placesLibre: 'rg-places-libre',
     dureeLibre: 'rg-duree-libre', lieuLibre: 'rg-lieu-libre'
   };
   let reglagesCharges = {};
@@ -871,7 +909,9 @@
           <span class="badge${a.role !== 'adherent' ? ' cours' : ''}">${LIBELLES_ROLE[a.role] || a.role}</span>
           <span class="badge">${echapper(groupe)}</span>
           ${a.actif ? '' : '<span class="badge badge-alerte">Suspendu</span>'}
-          ${a.notifications ? '<span class="badge" title="Notifications activées">Notifications</span>' : ''}
+          ${a.notifications ? '<span class="badge" title="Notifications activées sur un téléphone">📱</span>' : ''}
+          ${a.invitations === false ? '<span class="badge" title="Ne reçoit pas les invitations Google Agenda">sans agenda</span>' : ''}
+          ${a.messages && a.messages !== 'notification' ? `<span class="badge">${a.messages === 'email' ? 'e-mail seul' : 'aucun message'}</span>` : ''}
         </span></button></li>`;
     }).join('') : '<li class="vide-liste">Aucun adhérent ne correspond.</li>';
   }
@@ -900,6 +940,8 @@
     $('adh-role').value = a ? a.role : 'adherent';
     $('adh-groupe').value = a ? (a.groupe || '') : '';
     $('adh-actif').checked = a ? a.actif : true;
+    $('adh-invitations').checked = a ? a.invitations !== false : true;
+    $('adh-messages').value = a ? (a.messages || 'notification') : 'notification';
     $('ligne-actif').hidden = !a;
     $('adh-aide-creation').hidden = !!a;
     $('adh-actions-compte').hidden = !a;
@@ -924,7 +966,8 @@
     occupe(bouton, true, 'Enregistrement…');
     const r = await api('enregistrerAdherent', { adherent: {
       emailOrigine: adherentEnCours, email: $('adh-email').value, prenom: $('adh-prenom').value,
-      nom: $('adh-nom').value, role: $('adh-role').value, groupe: $('adh-groupe').value, actif: actif
+      nom: $('adh-nom').value, role: $('adh-role').value, groupe: $('adh-groupe').value, actif: actif,
+      invitations: $('adh-invitations').checked, messages: $('adh-messages').value
     } });
     occupe(bouton, false);
     if (r.code === 'AUTH') { fermerDialogue($('dialogue-adherent')); return; }
@@ -1073,79 +1116,6 @@
         ? `<a href="${echapper(r.formulaire)}" target="_blank" rel="noopener">Ouvrir le formulaire</a>` : 'non créé')
     ].join('');
     chargerJournal();
-    chargerRelances();
-  }
-
-  // ---------- Relance des présences à confirmer ----------
-  const fmtCoursRelance = fmt({ weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-  const LIBELLES_CANAL = { auto: 'notification, sinon e-mail', push: 'notification', email: 'e-mail' };
-
-  async function chargerRelances() {
-    const zone = $('relance-liste');
-    const r = await api('outilsNonConfirmes');
-    if (!r.ok) { zone.innerHTML = ''; return; }
-    $('relance-auto-etat').textContent = r.relanceAuto.active
-      ? `Relance automatique : activée, ${r.relanceAuto.heures} h avant chaque cours (Réglages). Ici, vous pouvez relancer à tout moment.`
-      : 'Relance automatique : désactivée (Réglages → Cours réguliers et séances). Vous pouvez relancer ici à la main.';
-    if (!r.cours.length) { zone.innerHTML = '<p class="vide-liste">Aucun cours dans les 3 prochaines semaines.</p>'; return; }
-    zone.innerHTML = r.cours.map((c) => {
-      const id = echapper(c.id);
-      const entete = `<div class="relance-entete"><b>${echapper(majuscule(fmtCoursRelance.format(new Date(c.debut))))}</b>` +
-        `${c.groupe ? ' · ' + echapper(c.groupe) : ''}<br><span class="aide-champ">${echapper(c.titre)} — ` +
-        `${c.confirmes} confirmé(s) sur ${c.invites}</span></div>`;
-      const historique = [
-        c.relanceAuto ? 'relance automatique envoyée' : '',
-        c.derniereRelance ? `dernière relance manuelle : ${fmtJournal.format(new Date(c.derniereRelance.date))}, ` +
-          `${c.derniereRelance.nb} personne(s), ${LIBELLES_CANAL[c.derniereRelance.canal] || ''}` : ''
-      ].filter(Boolean).join(' · ');
-      if (!c.nonConfirmes.length) {
-        return `<div class="relance-cours">${entete}<p class="relance-ok">✅ Tout le monde a confirmé.</p></div>`;
-      }
-      const personnes = c.nonConfirmes.map((p) =>
-        `<label class="relance-personne"><input type="checkbox" checked data-relance-email="${echapper(p.email)}">` +
-        `<span>${echapper(p.nom)}</span><span class="relance-tel" title="${p.telephone ? 'Notifications activées' : 'Pas de notifications : e-mail seulement'}">` +
-        `${p.telephone ? '📱' : '✉️'}</span></label>`).join('');
-      return `<div class="relance-cours" data-relance-cours="${id}">${entete}
-        <p class="relance-compte">${c.nonConfirmes.length} sans réponse :</p>
-        <div class="relance-personnes">${personnes}</div>
-        <div class="relance-envoi">
-          <select data-relance-canal aria-label="Moyen de relance">
-            <option value="auto">Notification, sinon e-mail</option>
-            <option value="push">Notification seulement</option>
-            <option value="email">E-mail seulement</option>
-          </select>
-          <button class="bouton principal" type="button" data-relancer="${id}">Relancer</button>
-        </div>
-        ${historique ? `<p class="aide-champ">${echapper(historique)}</p>` : ''}</div>`;
-    }).join('');
-    zone.querySelectorAll('[data-relancer]').forEach((b) => b.addEventListener('click', relancer));
-    zone.querySelectorAll('[data-relance-email]').forEach((c) => c.addEventListener('change', majBoutonRelance));
-    zone.querySelectorAll('[data-relance-cours]').forEach((bloc) => majBoutonRelance({ target: bloc }));
-    $('relance-auto-etat').dataset.quota = r.quotaEmails;
-  }
-
-  function majuscule(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
-
-  function majBoutonRelance(e) {
-    const bloc = e.target.closest('[data-relance-cours]');
-    const n = bloc.querySelectorAll('[data-relance-email]:checked').length;
-    const b = bloc.querySelector('[data-relancer]');
-    b.textContent = n ? `Relancer (${n})` : 'Relancer';
-    b.disabled = n === 0;
-  }
-
-  async function relancer(e) {
-    const bloc = e.target.closest('[data-relance-cours]');
-    const emails = [...bloc.querySelectorAll('[data-relance-email]:checked')].map((c) => c.dataset.relanceEmail);
-    const canal = bloc.querySelector('[data-relance-canal]').value;
-    if (!emails.length) return;
-    if (!window.confirm(`Envoyer la relance « Confirmez votre présence » à ${emails.length} personne(s), par ${LIBELLES_CANAL[canal]} ?`)) return;
-    occupe(e.target, true, 'Envoi…');
-    const r = await api('outilsRelancer', { eventId: e.target.dataset.relancer, canal, emails });
-    occupe(e.target, false);
-    if (r.code === 'AUTH') return;
-    message(r.ok ? r.message : r.erreur, !r.ok);
-    if (r.ok) chargerRelances();
   }
 
   async function lancerDiagnostic(e) {
@@ -1221,6 +1191,120 @@
     $('adh-deconnecter').addEventListener('click', deconnecterAdherent);
   }
 
+  // ---------- Message aux participants (administrateurs) ----------
+  let messageEnCours = null;
+
+  function ouvrirMessage(id) {
+    const s = sessionsParId[id];
+    if (!s) return;
+    messageEnCours = id;
+    $('message-seance').textContent = `${s.titre} · ${fmtComplet.format(new Date(s.debut))}` +
+      (s.nbDestinataires != null ? ` · ${s.nbDestinataires} inscrit${s.nbDestinataires > 1 ? 's' : ''}` : '');
+    $('message-titre').value = '';
+    $('message-texte').value = '';
+    ouvrirDialogue($('dialogue-message'));
+    $('message-texte').focus();
+  }
+
+  async function envoyerMessageParticipants(e) {
+    e.preventDefault();
+    const bouton = $('message-envoyer');
+    if (bouton.disabled || !messageEnCours) return;
+    if (!$('message-texte').value.trim()) { message('Écrivez le message.', true); return; }
+    occupe(bouton, true, 'Envoi…');
+    const r = await api('ecrireParticipants', { eventId: messageEnCours,
+      message: { titre: $('message-titre').value, texte: $('message-texte').value } });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') { fermerDialogue($('dialogue-message')); return; }
+    if (!r.ok) { message(r.erreur, true); return; }
+    fermerDialogue($('dialogue-message'));
+    message(r.message);
+  }
+
+  // ---------- Sessions précédentes ----------
+  let vueSeances = 'avenir';
+  let coursPrecedents = [];
+  let peutModifierLien = false;
+  let lienEnCours = null;
+
+  function afficherVue(vue) {
+    vueSeances = vue;
+    document.querySelectorAll('[data-vue]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.vue === vue)));
+    $('liste-sessions').hidden = vue !== 'avenir';
+    $('liste-precedentes').hidden = vue !== 'precedentes';
+    if (vue === 'precedentes') chargerPrecedentes(); else chargerSessions();
+  }
+
+  async function chargerPrecedentes() {
+    $('chargement').hidden = false;
+    const r = await api('sessionsPrecedentes');
+    $('chargement').hidden = true;
+    if (!r.ok) { if (r.code !== 'AUTH') message(r.erreur, true); return; }
+    coursPrecedents = r.cours;
+    peutModifierLien = !!r.peutModifier;
+    rendrePrecedentes();
+  }
+
+  function rendrePrecedentes() {
+    const conteneur = $('liste-precedentes');
+    if (!coursPrecedents.length) {
+      conteneur.innerHTML = '<div class="vide"><p>Aucun cours terminé pour l\'instant.</p></div>';
+      return;
+    }
+    let moisCourant = '';
+    conteneur.innerHTML = coursPrecedents.map((c) => {
+      const debut = new Date(c.debut);
+      const mois = fmtMoisAnnee.format(debut);
+      const titreMois = mois !== moisCourant ? `<h3 class="mois">${echapper(mois)}</h3>` : '';
+      moisCourant = mois;
+      const groupe = c.groupe === 'Tous' ? 'Tous les groupes' : (c.groupe ? 'Groupe ' + c.groupe : 'Cours');
+      const edition = peutModifierLien
+        ? `<div class="actions"><div class="edition"><button class="lien" type="button" data-lien="${echapper(c.id)}">${
+            c.lienDrive ? 'Modifier le lien Google Drive' : 'Ajouter le lien Google Drive'}</button></div></div>`
+        : '';
+      return `${titreMois}
+        <article class="session cours passee" aria-label="${echapper(c.titre)}, ${echapper(fmtComplet.format(debut))}">
+          <div class="etiquette-date" aria-hidden="true">
+            <span class="jour-semaine">${echapper(fmtJourSemaine.format(debut))}</span>
+            <span class="jour">${echapper(fmtJour.format(debut))}</span>
+            <span class="mois-court">${echapper(fmtMoisCourt.format(debut))}</span>
+          </div>
+          <div>
+            <span class="badge cours">${echapper(groupe)}</span>
+            <h3>${echapper(c.titre)}</h3>
+            ${c.intitule ? `<p class="intitule"><strong>${echapper(c.intitule)}</strong></p>` : ''}
+            ${blocFournitures(c.fournitures)}
+            ${c.lienDrive ? lienDossier(c.lienDrive) : '<p class="aide-champ">Pas encore de photos ni de déroulé partagés.</p>'}
+          </div>
+          ${edition}
+        </article>`;
+    }).join('');
+  }
+
+  function ouvrirLien(id) {
+    const c = coursPrecedents.find((x) => x.id === id);
+    if (!c) return;
+    lienEnCours = id;
+    $('lien-cours').textContent = `${c.titre} · ${fmtComplet.format(new Date(c.debut))}`;
+    $('lien-url').value = c.lienDrive || '';
+    ouvrirDialogue($('dialogue-lien'));
+    $('lien-url').focus();
+  }
+
+  async function enregistrerLien(e) {
+    e.preventDefault();
+    const bouton = $('lien-enregistrer');
+    if (bouton.disabled || !lienEnCours) return;
+    occupe(bouton, true, 'Enregistrement…');
+    const r = await api('lienDrive', { eventId: lienEnCours, lien: $('lien-url').value });
+    occupe(bouton, false);
+    if (r.code === 'AUTH') { fermerDialogue($('dialogue-lien')); return; }
+    if (!r.ok) { message(r.erreur, true); return; }
+    fermerDialogue($('dialogue-lien'));
+    message(r.message);
+    chargerPrecedentes();
+  }
+
   // ---------- Installation sur l'écran d'accueil ----------
   let invitationInstallation = null;
 
@@ -1230,28 +1314,84 @@
     afficherAideInstallation();
   });
 
+  /** Système et navigateur, pour donner la bonne procédure d'installation. */
+  function plateforme() {
+    const ua = navigator.userAgent;
+    const ios = /iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const android = /android/i.test(ua);
+    let nav = 'autre';
+    if (/FxiOS|Firefox/i.test(ua)) nav = 'firefox';
+    else if (/SamsungBrowser/i.test(ua)) nav = 'samsung';
+    else if (/EdgiOS|EdgA|Edg\//i.test(ua)) nav = 'edge';
+    else if (/CriOS|Chrome|Chromium/i.test(ua)) nav = 'chrome';
+    else if (/Safari/i.test(ua)) nav = 'safari';
+    return { os: ios ? 'ios' : android ? 'android' : 'autre', nav: nav };
+  }
+
+  const PROCEDURES = {
+    'android-chrome': ['Android · Chrome', ['Touchez le menu <b>⋮</b> en haut à droite.',
+      'Touchez <b>Installer l\'application</b> (ou <b>Ajouter à l\'écran d\'accueil</b> → <b>Installer</b>).',
+      'L\'icône « Couture » apparaît avec vos applications.']],
+    'android-firefox': ['Android · Firefox', ['Touchez le menu <b>⋮</b> (en bas ou en haut à droite).',
+      'Touchez <b>Installer</b> (selon la version : <b>Ajouter à l\'écran d\'accueil</b>), puis confirmez <b>Ajouter</b>.',
+      'L\'icône « Couture » apparaît sur l\'écran d\'accueil.']],
+    'android-samsung': ['Android · Samsung Internet', ['Touchez le menu <b>≡</b> en bas à droite.',
+      'Touchez <b>Ajouter page à</b> → <b>Écran d\'accueil</b> (ou l\'icône <b>+</b> dans la barre d\'adresse).']],
+    'ios-safari': ['iPhone / iPad · Safari', ['Touchez le bouton <b>Partager</b> (carré avec une flèche vers le haut).',
+      'Faites défiler, touchez <b>Sur l\'écran d\'accueil</b>, puis <b>Ajouter</b>.',
+      'Ouvrez ensuite l\'application <b>depuis l\'icône</b> : c\'est nécessaire pour recevoir les notifications (iOS 16.4 ou plus récent).']],
+    'ios-chrome': ['iPhone / iPad · Chrome', ['Touchez le bouton <b>Partager</b> dans la barre d\'adresse (iOS 16.4 ou plus récent).',
+      'Touchez <b>Sur l\'écran d\'accueil</b>, puis <b>Ajouter</b>.',
+      'Si l\'option n\'apparaît pas : ouvrez la même adresse dans Safari.']],
+    'ios-firefox': ['iPhone / iPad · Firefox', ['Touchez le menu <b>≡</b>, puis <b>Partager</b> (iOS 16.4 ou plus récent).',
+      'Touchez <b>Sur l\'écran d\'accueil</b>, puis <b>Ajouter</b>.',
+      'Si l\'option n\'apparaît pas : ouvrez la même adresse dans Safari.']]
+  };
+
+  function cleProcedure() {
+    const p = plateforme();
+    if (p.os === 'ios') return p.nav === 'firefox' ? 'ios-firefox' : (p.nav === 'chrome' || p.nav === 'edge') ? 'ios-chrome' : 'ios-safari';
+    if (p.os === 'android') return p.nav === 'firefox' ? 'android-firefox' : p.nav === 'samsung' ? 'android-samsung' : 'android-chrome';
+    return '';
+  }
+
+  /** Guide complet (toutes les procédures, celle de ce téléphone en premier). */
+  function afficherGuideInstallation(zone) {
+    if (!zone) return;
+    const installee = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const cle = cleProcedure();
+    const ordre = Object.keys(PROCEDURES).sort((a, b) => (b === cle) - (a === cle));
+    zone.innerHTML = (installee ? '<p>✅ L\'application est installée sur ce téléphone.</p>' :
+      (invitationInstallation ? '<p><button class="bouton principal" type="button" data-installer>Installer maintenant</button></p>' : '')) +
+      ordre.map((k) => `<details class="depliant procedure"${k === cle && !installee ? ' open' : ''}><summary>${PROCEDURES[k][0]}${
+        k === cle ? ' <span class="badge">ce téléphone</span>' : ''}</summary><ol>${
+        PROCEDURES[k][1].map((t) => `<li>${t}</li>`).join('')}</ol></details>`).join('');
+  }
+
+  async function installer() {
+    if (!invitationInstallation) return;
+    invitationInstallation.prompt();
+    await invitationInstallation.userChoice;
+    invitationInstallation = null;
+    afficherAideInstallation();
+  }
+
   function afficherAideInstallation() {
     const zone = $('aide-installation');
     const installee = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     if (installee || $('ecran-sessions').hidden) { zone.hidden = true; return; }
-
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const cle = cleProcedure();
     if (invitationInstallation) {
-      zone.innerHTML = 'Installez l\'application pour la retrouver sur votre écran d\'accueil. ' +
-        '<button class="lien" id="btn-installer" type="button">Installer</button>';
-      zone.hidden = false;
-      $('btn-installer').addEventListener('click', async () => {
-        invitationInstallation.prompt();
-        await invitationInstallation.userChoice;
-        invitationInstallation = null;
-        zone.hidden = true;
-      });
-    } else if (ios) {
-      zone.textContent = 'Pour l\'installer : touchez le bouton Partager de Safari, puis « Sur l\'écran d\'accueil ».';
-      zone.hidden = false;
+      zone.innerHTML = 'Installez l\'application pour la retrouver avec vos applications. ' +
+        '<button class="lien" type="button" data-installer>Installer</button>';
+    } else if (cle) {
+      zone.innerHTML = `Pour l'installer : ${PROCEDURES[cle][1].slice(0, 2).join(' ')} ` +
+        '<button class="lien" type="button" data-guide-installation>Autres téléphones et navigateurs</button>';
     } else {
       zone.hidden = true;
+      return;
     }
+    zone.hidden = false;
   }
 
   // ---------- Démarrage ----------
@@ -1274,7 +1414,7 @@
     });
     $('btn-changer-email').addEventListener('click', afficherConnexion);
     $('btn-deconnexion').addEventListener('click', seDeconnecter);
-    $('btn-actualiser').addEventListener('click', chargerSessions);
+    $('btn-actualiser').addEventListener('click', () => (vueSeances === 'precedentes' ? chargerPrecedentes() : chargerSessions()));
     $('onglets').addEventListener('click', (e) => {
       const b = e.target.closest('[data-onglet]');
       if (b) afficherOnglet(b.dataset.onglet);
@@ -1284,7 +1424,26 @@
       if (b) activerNotifications(b);
       const t = e.target.closest('.btn-tester-push');
       if (t) testerNotification(t);
+      if (e.target.closest('[data-installer]')) installer();
+      if (e.target.closest('[data-guide-installation]')) {
+        afficherGuideInstallation($('guide-installation'));
+        ouvrirDialogue($('dialogue-installation'));
+      }
     });
+    $('installation-fermer').addEventListener('click', () => fermerDialogue($('dialogue-installation')));
+    document.querySelectorAll('[data-vue]').forEach((b) => b.addEventListener('click', () => afficherVue(b.dataset.vue)));
+    $('liste-precedentes').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-lien]');
+      if (b) ouvrirLien(b.dataset.lien);
+    });
+    $('form-lien').addEventListener('submit', enregistrerLien);
+    $('lien-annuler').addEventListener('click', () => fermerDialogue($('dialogue-lien')));
+    $('form-message').addEventListener('submit', envoyerMessageParticipants);
+    $('message-annuler').addEventListener('click', () => fermerDialogue($('dialogue-message')));
+    $('pref-invitations').addEventListener('change', (e) =>
+      changerPreference({ invitations: e.target.checked }, [e.target]));
+    document.querySelectorAll('input[name=pref-messages]').forEach((b) => b.addEventListener('change', (e) =>
+      changerPreference({ messages: e.target.value }, [...document.querySelectorAll('input[name=pref-messages]')])));
     initialiserGestion();
     initialiserAdherents();
     initialiserOutils();
@@ -1301,7 +1460,7 @@
 
     // Actualise quand on revient dans l'application
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && etat.jeton && !$('ecran-sessions').hidden) chargerSessions();
+      if (!document.hidden && etat.jeton && !$('ecran-sessions').hidden && vueSeances === 'avenir') chargerSessions();
     });
 
     if ('serviceWorker' in navigator) {
